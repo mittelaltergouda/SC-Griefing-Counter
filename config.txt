@@ -1,8 +1,0 @@
-# Spielername des aktuellen Benutzers
-PLAYER_NAME=mittelalter_gouda
-
-# Aktiviert oder deaktiviert das Logging (true/false)
-LOGGING_ENABLED=true
-
-# Logging-Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-LOGGING_LEVEL=DEBUG
