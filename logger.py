@@ -49,18 +49,18 @@ def setup_logging(general_log_folder, error_log_folder, log_level="INFO", app_lo
 
     # Allgemeine Log-Datei
     general_handler = RotatingFileHandler(general_log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
-    general_handler.setFormatter(logging.Formatter("%(asctime)s - %(levellevel)s - %(message)s"))
+    general_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(general_handler)
 
     # Fehler-Log-Datei
     error_handler = RotatingFileHandler(error_log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
     error_handler.setLevel(logging.ERROR)
-    error_handler.setFormatter(logging.Formatter("%(asctime)s - %(levellevel)s - %(message)s"))
+    error_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(error_handler)
 
     # Konsolen-Handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levellevel)s - %(message)s"))
+    console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(console_handler)
 
     return logger

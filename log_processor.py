@@ -4,27 +4,10 @@ import config
 import database
 import npc_handler
 import logging
-from logging.handlers import RotatingFileHandler
+from datetime import datetime
 
-# Setup logging
-log_file = os.path.join(config.GENERAL_LOG_FOLDER, "griefing_counter.log")
-error_log_file = os.path.join(config.ERROR_LOG_FOLDER, "griefing_counter_errors.log")
-
-# General log handler
-general_handler = RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=3)
-general_handler.setLevel(logging.INFO)
-general_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-# Error log handler
-error_handler = RotatingFileHandler(error_log_file, maxBytes=5 * 1024 * 1024, backupCount=3)
-error_handler.setLevel(logging.ERROR)
-error_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-
-# Logger setup
+# Initialisiere den Logger korrekt
 logger = logging.getLogger("GriefingCounter")
-logger.setLevel(logging.DEBUG)
-logger.addHandler(general_handler)
-logger.addHandler(error_handler)
 
 ACTOR_DEATH_REGEX = re.compile(
     r"^<(?P<timestamp>[^>]+)>.*?<Actor Death>.*?'(?P<killed_player>[^']+)' \[\d+\].*?"
