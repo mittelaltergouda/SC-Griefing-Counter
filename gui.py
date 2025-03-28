@@ -133,7 +133,35 @@ class GriefingCounterApp(tk.Tk):
         """Separate UI initialization"""
         self.setup_top_frame()
         self.setup_main_frame()
-        
+        self.setup_footer()
+
+    def setup_footer(self):
+        """Erstellt den Footer-Bereich mit Log- und DB-Informationen."""
+        self.footer_frame = tk.Frame(self, height=20, bg="lightgrey")
+        self.footer_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Labels für Logs und DB-Informationen
+        self.logs_label = tk.Label(self.footer_frame, text="Gelesene Logs: 0", bg="lightgrey")
+        self.logs_label.pack(side=tk.LEFT, padx=10)
+
+        self.db_size_label = tk.Label(self.footer_frame, text="DB-Größe: 0 KB", bg="lightgrey")
+        self.db_size_label.pack(side=tk.RIGHT, padx=10)
+
+        # Initialisiere die Anzeige
+        self.update_footer()
+
+    def update_footer(self):
+        """Aktualisiert die Informationen im Footer."""
+        imported, total = log_processor.get_backup_log_progress()
+        percent = (imported / total * 100) if total > 0 else 100
+        db_size = database.get_db_size_kb()
+
+        self.logs_label.config(text=f"Gelesene Logs: {imported}/{total} ({percent:.1f}%)")
+        self.db_size_label.config(text=f"DB-Größe: {db_size:.1f} KB")
+
+        # Aktualisiere den Footer regelmäßig
+        self.after(5000, self.update_footer)
+
     def setup_top_frame(self):
         """Setup top frame UI components"""
         self.top_frame = tk.Frame(self)
@@ -485,14 +513,8 @@ class GriefingCounterApp(tk.Tk):
         self.kill_text.config(state="disabled")
 
     def update_progress_info(self):
-        """Zeigt an, wie viele Logs verarbeitet wurden, plus DB-Größe."""
-        imported, total = log_processor.get_backup_log_progress()
-        percent = (imported / total * 100) if total > 0 else 100
-        db_size = database.get_db_size_kb()
-
-        progress_text = f"Logs: {imported}/{total} ({percent:.1f}%) | DB: {db_size:.1f} KB"
-        self.var_progress.set(progress_text)
-        self.stop_loading_animation()
+        """Entfernt die alte Anzeige der Logs und DB-Größe."""
+        pass
 
     def open_citizen_page(self, player_name):
         """Öffnet die Citizen-Seite im Standard-Webbrowser für den gegebenen Spielernamen."""
