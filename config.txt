@@ -1,21 +1,8 @@
-# ===========================================
-# Griefing Counter Konfigurationsdatei
-# ===========================================
+# Spielername des aktuellen Benutzers
+PLAYER_NAME=mittelalter_gouda
 
-# Spielername - wird für die Datenbankabfragen und Statistiken verwendet
-PLAYER_NAME=
-
-# Logging-Einstellungen
-# ---------------------
-# LOGGING_ENABLED: Aktiviert oder deaktiviert die Protokollierung
-# Werte: true (aktiviert) oder false (deaktiviert)
+# Aktiviert oder deaktiviert das Logging (true/false)
 LOGGING_ENABLED=true
 
-# LOGGING_LEVEL: Bestimmt den Detaillierungsgrad der Protokollierung
-# Mögliche Werte (aufsteigend nach Wichtigkeit):
-# - DEBUG: Ausführliche Debugging-Informationen (viele Details)
-# - INFO: Allgemeine Informationen über den Programmablauf (empfohlen)
-# - WARNING: Nur Warnungen und Fehler protokollieren
-# - ERROR: Nur Fehler protokollieren
-# - CRITICAL: Nur kritische Fehler protokollieren
+# Logging-Level: DEBUG, INFO, WARNING, ERROR, CRITICAL
 LOGGING_LEVEL=DEBUG

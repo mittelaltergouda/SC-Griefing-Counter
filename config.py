@@ -42,10 +42,15 @@ def load_config():
         save_config()
 
 def save_config():
-    """Saves the current config settings to a file."""
+    """Saves the current config settings to a file with comments for better user understanding."""
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        f.write(f"PLAYER_NAME={CURRENT_PLAYER_NAME}\n")
-        f.write(f"LOGGING_ENABLED={'true' if LOGGING_ENABLED else 'false'}\n")
+        f.write("# Spielername des aktuellen Benutzers\n")
+        f.write(f"PLAYER_NAME={CURRENT_PLAYER_NAME}\n\n")
+
+        f.write("# Aktiviert oder deaktiviert das Logging (true/false)\n")
+        f.write(f"LOGGING_ENABLED={'true' if LOGGING_ENABLED else 'false'}\n\n")
+
+        f.write("# Logging-Level: DEBUG, INFO, WARNING, ERROR, CRITICAL\n")
         f.write(f"LOGGING_LEVEL={LOGGING_LEVEL}\n")
 
 def get_db_name():

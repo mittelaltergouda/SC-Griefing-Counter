@@ -1,0 +1,31 @@
+# Python-Bytecode-Dateien und Cache-Ordner
+__pycache__/
+*.pyc
+*.pyo
+
+# Log-Dateien
+Logs/
+*.log
+
+# Konfigurationsdateien
+config.txt
+
+# Virtuelle Umgebungen
+venv/
+.env/
+
+# IDE-spezifische Dateien
+.vscode/
+.idea/
+
+# Betriebssystem-spezifische Dateien
+.DS_Store
+Thumbs.db
+
+# Temporäre Dateien
+*.tmp
+*.bak
+*.swp
+
+# Datenbanken
+databases/
