@@ -16,6 +16,7 @@ import stats
 from watchdog_handler import start_watchdog
 from datetime import datetime
 from ui_constants import Colors, Fonts, WindowSettings, RefreshSettings
+import logger
 
 # Um den Kalender zu benutzen, benötigst du das Paket tkcalendar
 # Installiere es mit: pip install tkcalendar
@@ -25,71 +26,11 @@ try:
 except ImportError:
     CALENDAR_AVAILABLE = False
 
-# Verbesserte Logging-Konfiguration mit Zeitstempel im Dateinamen (Datum und Uhrzeit)
+# Setup logging
 if config.LOGGING_ENABLED:
-    # Aktuelle Zeit für Zeitstempel im Dateinamen
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Logging-Level aus der Konfiguration übernehmen
-    log_level = getattr(logging, config.LOGGING_LEVEL, logging.INFO)
-    
-    # Root-Logger konfigurieren und bestehende Handler entfernen
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Datei-Handler für allgemeine Log-Dateien mit Zeitstempel
-    general_log_file = os.path.join(config.GENERAL_LOG_FOLDER, f"griefing_counter_{timestamp}.log")
-    general_handler = RotatingFileHandler(
-        general_log_file, 
-        maxBytes=5 * 1024 * 1024,  # 5 MB
-        backupCount=3,
-        encoding='utf-8'
-    )
-    general_handler.setLevel(log_level)
-    general_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    root_logger.addHandler(general_handler)
-
-    # Datei-Handler für Fehler-Logs mit Zeitstempel
-    error_log_file = os.path.join(config.ERROR_LOG_FOLDER, f"griefing_counter_errors_{timestamp}.log")
-    error_handler = RotatingFileHandler(
-        error_log_file,
-        maxBytes=5 * 1024 * 1024,  # 5 MB
-        backupCount=3,
-        encoding='utf-8'
-    )
-    error_handler.setLevel(logging.ERROR)
-    error_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    root_logger.addHandler(error_handler)
-
-    # Konsolen-Handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    root_logger.addHandler(console_handler)
-
-    # Applikations-Logger konfigurieren
-    logger = logging.getLogger("GriefingCounter")
-    logger.setLevel(log_level)
-    # Der Applikations-Logger erbt die Handler vom Root-Logger
-
-    # Startup-Logging
-    logger.info("=== Griefing Counter v0.6.7 startet ===")
-    logger.info(f"Logging ist aktiviert (Level: {config.LOGGING_LEVEL})")
-    logger.info(f"Logs werden gespeichert in: {general_log_file}")
-    logger.info(f"Error Logs werden gespeichert in: {error_log_file}")
-    logger.info(f"Aktueller Spieler: {config.CURRENT_PLAYER_NAME or 'Nicht gesetzt'}")
-    logger.info(f"Live Log-Ordner: {config.LIVE_FOLDER}")
-    logger.info(f"Backup Log-Ordner: {config.BACKUP_FOLDER}")
+    logger.setup_logging(config.GENERAL_LOG_FOLDER, config.ERROR_LOG_FOLDER, config.LOGGING_LEVEL)
 else:
-    # Wenn Logging deaktiviert ist, NullHandler verwenden
     logging.getLogger().addHandler(logging.NullHandler())
-    # Leeren Logger verwenden, der nichts tut
-    class NullLogger:
-        def __getattr__(self, name):
-            return lambda *args, **kwargs: None
-    logger = NullLogger()
 
 # UI Constants
 UI_CONSTANTS = {

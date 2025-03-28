@@ -29,3 +29,5 @@ Thumbs.db
 
 # Datenbanken
 databases/
+*.db
+*.sqlite3
