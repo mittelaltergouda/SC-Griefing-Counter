@@ -28,7 +28,7 @@ except ImportError:
 
 # Setup logging
 if config.LOGGING_ENABLED:
-    logger.setup_logging(config.GENERAL_LOG_FOLDER, config.ERROR_LOG_FOLDER, config.LOGGING_LEVEL)
+    logger.setup_logging(config.GENERAL_LOG_FOLDER, config.ERROR_LOG_FOLDER, config.DEBUG_LOG_FOLDER, config.LOGGING_LEVEL)
 else:
     logging.getLogger().addHandler(logging.NullHandler())
 

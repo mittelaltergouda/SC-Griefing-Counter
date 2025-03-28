@@ -16,9 +16,9 @@ import os
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
 import traceback
-from config import LOGGING_ENABLED, LOGGING_LEVEL
+from config import LOGGING_ENABLED, LOGGING_LEVEL, DEBUG_LOG_FOLDER
 
-def setup_logging(general_log_folder, error_log_folder, debug_log_folder=None, log_level=LOGGING_LEVEL, app_logger_name=None, enable_logging=LOGGING_ENABLED):
+def setup_logging(general_log_folder, error_log_folder, debug_log_folder=DEBUG_LOG_FOLDER, log_level=LOGGING_LEVEL, app_logger_name=None, enable_logging=LOGGING_ENABLED):
     """
     Konfiguriert das Logging für das Projekt.
 
@@ -55,6 +55,7 @@ def setup_logging(general_log_folder, error_log_folder, debug_log_folder=None, l
 
     # Allgemeine Log-Datei
     general_handler = RotatingFileHandler(general_log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
+    general_handler.setLevel(logging.INFO)
     general_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(general_handler)
 
@@ -66,14 +67,15 @@ def setup_logging(general_log_folder, error_log_folder, debug_log_folder=None, l
 
     # Debug-Log-Datei (optional)
     if debug_log_folder:
+        debug_log_file = os.path.join(debug_log_folder, f"griefing_counter_debug_{timestamp}.log")
         debug_handler = RotatingFileHandler(debug_log_file, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8")
         debug_handler.setLevel(logging.DEBUG)
-        debug_handler.setFormatter(logging.Formatter("%(asctime)s - %(levellevel)s - [%(module)s:%(lineno)d] - %(message)s"))
+        debug_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - [%(module)s:%(lineno)d] - %(message)s"))
         logger.addHandler(debug_handler)
 
     # Konsolen-Handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levellevel)s - %(message)s"))
+    console_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     logger.addHandler(console_handler)
 
     return logger

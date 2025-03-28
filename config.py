@@ -9,10 +9,13 @@ GAME_LOG_FILENAME = "Game.log"
 LOG_FOLDER = "Logs"
 ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
 GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
+# Debug-Log-Ordner hinzufügen
+DEBUG_LOG_FOLDER = os.path.join(LOG_FOLDER, "debug")
 
 # Ensure directories exist
 os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
 os.makedirs(GENERAL_LOG_FOLDER, exist_ok=True)
+os.makedirs(DEBUG_LOG_FOLDER, exist_ok=True)
 
 # Where we store the player's config
 CONFIG_FILE = "config.txt"
