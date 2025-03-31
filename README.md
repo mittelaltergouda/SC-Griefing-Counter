@@ -1,3 +1,6 @@
+## Lizenz
+Die Nutzung dieses Tools unterliegt den Bedingungen der Lizenz, die in der Datei [LICENSE.txt](./LICENSE.txt) beschrieben ist.
+
 # SC-Griefing-Counter
 
 ## Einführung

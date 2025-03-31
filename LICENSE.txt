@@ -1,0 +1,79 @@
+===========================================
+Lizenz für Griefing Counter (Deutsch)
+===========================================
+Copyright (c) 2025
+Mittelalter Gouda. Alle Rechte vorbehalten.
+
+1. Gegenstand der Lizenz  
+Der Quellcode dieses Projekts ("Griefing Counter") wird ausschließlich zum Zweck der Einsicht und Überprüfung bereitgestellt. Hiermit wird kein Nutzungsrecht (einschließlich, aber nicht beschränkt auf Vervielfältigung, Modifikation, Verbreitung, öffentliche Zugänglichmachung oder anderweitige Verwertung) eingeräumt – weder zu kommerziellen noch zu nicht-kommerziellen Zwecken.
+
+2. Erlaubte Handlungen  
+- Einsehen und Analysieren:  
+  Das bloße Anschauen, Lesen und Analysieren des Quellcodes ist gestattet.  
+- Temporäres Speichern zum persönlichen Gebrauch:  
+  Das vorübergehende Speichern des Codes (z. B. im Cache) ausschließlich zum Zwecke der Ansicht ist gestattet, sofern dadurch kein dauerhaftes Nutzungsrecht begründet wird.
+
+3. Verbotene Handlungen  
+Jegliche Handlung, die über die reine Ansicht hinausgeht, ist untersagt. Insbesondere ist es verboten:  
+- Den Quellcode in irgendeiner Form zu vervielfältigen, zu verbreiten oder öffentlich zugänglich zu machen.  
+- Den Quellcode zu modifizieren, zu übersetzen, abgeleitete Werke zu erstellen oder in irgendeiner Weise zu nutzen.  
+- Reverse Engineering, Dekompilierung oder Disassemblierung durchzuführen, sofern dies nicht aufgrund zwingender gesetzlicher Vorschriften (z. B. zur Sicherstellung der Interoperabilität) erforderlich ist. In Fällen, in denen eine gesetzlich gestattete Maßnahme vorliegt, ist der Nutzer verpflichtet, sich schriftlich mit Mittelalter Gouda in Verbindung zu setzen, um die Rahmenbedingungen zu klären.
+
+4. Haftungsausschluss und Gewährleistung  
+Der Quellcode wird "wie besehen" bereitgestellt – ohne jegliche ausdrückliche oder stillschweigende Gewährleistung, insbesondere ohne Gewährleistung der Marktgängigkeit, Eignung für einen bestimmten Zweck oder Nichtverletzung von Rechten Dritter.  
+Soweit gesetzlich zulässig, schließt Mittelalter Gouda jegliche Haftung aus – insbesondere für direkte, indirekte, zufällige oder Folgeschäden, die aus der Nutzung oder der Unmöglichkeit der Nutzung des Quellcodes entstehen.
+
+5. Rechtsfolgen bei Zuwiderhandlungen  
+Verstöße gegen die Bestimmungen dieser Lizenz gelten als erheblicher Vertragsbruch und berechtigen Mittelalter Gouda dazu, unverzüglich alle rechtlichen Schritte einzuleiten, einschließlich der Geltendmachung von Schadensersatz- und Unterlassungsansprüchen. Vor Einleitung rechtlicher Maßnahmen behält sich Mittelalter Gouda das Recht vor, dem Nutzer eine angemessene Frist zur Abhilfe zu setzen.
+
+6. Einbeziehung in den Lizenzvertrag  
+Diese Lizenzbedingungen gelten als vereinbart, sobald der Quellcode öffentlich zugänglich gemacht wird. Nutzer werden durch einen Hinweis in den Quellcodedateien sowie in der beiliegenden Lizenzdatei ausdrücklich auf diese Bedingungen hingewiesen. Eine fortgesetzte Einsichtnahme in den Quellcode gilt als stillschweigende Zustimmung zu diesen Bedingungen.
+
+7. Gerichtsstand und anwendbares Recht  
+Diese Lizenz unterliegt ausschließlich dem Recht der Bundesrepublik Deutschland. Ausschließlicher Gerichtsstand für sämtliche Streitigkeiten aus oder im Zusammenhang mit dieser Lizenz ist Bonn.
+
+8. Salvatorische Klausel  
+Sollte eine Bestimmung dieser Lizenz ganz oder teilweise unwirksam oder undurchführbar sein, so bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Anstelle der unwirksamen Bestimmung tritt eine Regelung, die dem wirtschaftlichen Zweck der unwirksamen Bestimmung in rechtlich zulässiger Weise am nächsten kommt.
+
+9. Maßgeblichkeit der Sprachversion  
+Sollte es zu Unstimmigkeiten zwischen der deutschen und der englischen Fassung dieser Lizenz kommen, ist die deutsche Version maßgeblich.
+
+===========================================
+License for Griefing Counter (English)
+===========================================
+Copyright (c) 2025
+Mittelalter Gouda. All rights reserved.
+
+1. Subject Matter of the License  
+The source code of this project ("Griefing Counter") is provided solely for the purpose of viewing and review. No rights of use are hereby granted – this includes, but is not limited to, the rights of reproduction, modification, distribution, public access, or any other form of exploitation, whether for commercial or non-commercial purposes.
+
+2. Permitted Actions  
+- Viewing and Analysis:  
+  The mere viewing, reading, and analysis of the source code is permitted.  
+- Temporary Storage for Personal Use:  
+  Temporarily storing the code (e.g., in cache) solely for the purpose of viewing is permitted, provided that this does not constitute a permanent grant of usage rights.
+
+3. Prohibited Actions  
+Any action beyond mere viewing is prohibited. In particular, it is prohibited:  
+- To reproduce, distribute, or make the source code publicly available in any form.  
+- To modify, translate, create derivative works from, or otherwise utilize the source code in any manner.  
+- To engage in reverse engineering, decompilation, or disassembly, unless such actions are mandated by law (e.g., to ensure interoperability). In cases where a legally permitted instance applies, the user is obligated to contact Mittelalter Gouda in writing to clarify the conditions.
+
+4. Disclaimer of Liability and Warranty  
+The source code is provided "as is" without any express or implied warranty – including but not limited to any warranty of merchantability, fitness for a particular purpose, or non-infringement of third-party rights.  
+To the extent permitted by law, Mittelalter Gouda disclaims all liability – including, but not limited to, direct, indirect, incidental, or consequential damages arising from the use or inability to use the source code.
+
+5. Legal Consequences of Breach  
+Any violation of the terms of this license shall be deemed a material breach and entitles Mittelalter Gouda to immediately pursue all legal remedies, including claims for damages and injunctive relief. Prior to initiating legal action, Mittelalter Gouda reserves the right to grant the user a reasonable period to remedy the breach.
+
+6. Incorporation into the License Agreement  
+These license terms shall be deemed agreed upon once the source code is made publicly accessible. Users are explicitly informed of these conditions by a reference in the source code files as well as in the accompanying license file. Continued access to the source code shall constitute implicit acceptance of these terms.
+
+7. Jurisdiction and Applicable Law  
+This license shall be governed exclusively by the laws of the Federal Republic of Germany. The exclusive jurisdiction for all disputes arising out of or in connection with this license is Bonn.
+
+8. Severability Clause  
+Should any provision of this license be or become invalid or unenforceable in whole or in part, the validity of the remaining provisions shall not be affected. In place of the invalid provision, a regulation shall be deemed agreed upon which comes closest to the economic purpose of the invalid provision in a legally permissible manner.
+
+9. Controlling Language Version  
+In the event of any discrepancies between the English and the German versions of this license, the German version shall prevail.
