@@ -21,6 +21,28 @@ def clean_id(text):
     """Entfernt anhängende numerische IDs von Strings (z. B. NPC-Namen, Waffen)."""
     return re.sub(r'(_\d+)$', '', text)
 
+def categorize_missing_npcs():
+    """Durchsucht die Datenbank nach NPCs mit vlk_, kopion_, oder quasigrazer_ Präfixen, 
+    die noch nicht in npc_categories sind, und fügt sie hinzu."""
+    # Hole alle Killer und Victims aus der Datenbank
+    all_entities = database.fetch_query("""
+        SELECT DISTINCT killed_player FROM kills
+        UNION
+        SELECT DISTINCT killer FROM kills
+    """)
+
+    count = 0
+    for (entity,) in all_entities:
+        entity_lower = entity.strip().lower()
+        # Prüfe, ob es sich um einen NPC mit einem der Präfixe handelt
+        if entity_lower.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            # Füge ihn zur NPC-Kategorie hinzu, wenn er noch nicht existiert
+            npc_handler.save_npc_category(entity_lower, "uncategorized")
+            count += 1
+    
+    print(f"[INFO] Categorized {count} previously uncategorized NPCs")
+    return count
+
 def get_stats(start_date=None, end_date=None):
     if not config.CURRENT_PLAYER_NAME:
         return ("No player name set.", "No kill events to show.")
@@ -108,23 +130,29 @@ def get_stats(start_date=None, end_date=None):
 
     for (victim,) in kills_detail:
         cleaned = npc_handler.clean_npc_name(victim)
-        if not cleaned.startswith("pu_"):
-            kill_counts["players"] += 1
-        else:
+        # Tiere und andere NPC-Typen erkennen
+        if cleaned.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            kill_counts["npc_animal"] += 1
+        elif cleaned.startswith("pu_"):
             cat = npc_dict.get(cleaned, "uncategorized")
             key = f"npc_{cat}"
             kill_counts[key] = kill_counts.get(key, 0) + 1
+        else:
+            kill_counts["players"] += 1
 
     for (killer,) in deaths_detail:
         cleaned = npc_handler.clean_npc_name(killer)
         if cleaned.lower() == "unknown":
             death_counts["unknown"] = death_counts.get("unknown", 0) + 1
-        elif not cleaned.startswith("pu_"):
-            death_counts["players"] += 1
-        else:
+        # Tiere und andere NPC-Typen erkennen
+        elif cleaned.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            death_counts["npc_animal"] += 1
+        elif cleaned.startswith("pu_"):
             cat = npc_dict.get(cleaned, "uncategorized")
             key = f"npc_{cat}"
             death_counts[key] = death_counts.get(key, 0) + 1
+        else:
+            death_counts["players"] += 1
 
     stats_text = (
         f"Total Kills: {kills_by_me}\n"
@@ -231,6 +259,9 @@ def get_leaderboards(start_date=None, end_date=None):
     if not config.CURRENT_PLAYER_NAME:
         return [], []
 
+    # Stelle sicher, dass alle vlk_, kopion_, quasigrazer_ und pu_-NPCs kategorisiert sind
+    categorize_missing_npcs()
+
     player_lower = config.CURRENT_PLAYER_NAME.lower()
     
     # Wandle Datumsangaben in Strings für SQL-Vergleiche um
@@ -247,35 +278,47 @@ def get_leaderboards(start_date=None, end_date=None):
         date_filter += " AND timestamp <= ?"
         date_params.append(end_date_str)
 
-    # Kill Leaderboard Abfrage mit Datumsfilter
+    # Vereinfachte Kill-Leaderboard-Abfrage
     kill_params = [player_lower, player_lower] + date_params
     kill_data = database.fetch_query(f"""
         SELECT killed_player, COUNT(*) as cnt
         FROM kills
         WHERE LOWER(killer) = ?
-          AND LENGTH(killed_player) <= 35
-          AND LOWER(killed_player) NOT IN (SELECT LOWER(npc_name) FROM npc_categories)
           AND LOWER(killed_player) <> ?
+          AND NOT (
+              LOWER(killed_player) LIKE 'vlk_%' 
+              OR LOWER(killed_player) LIKE 'pu_%'
+              OR LOWER(killed_player) LIKE 'kopion_%'
+              OR LOWER(killed_player) LIKE 'quasigrazer_%'
+          )
           {date_filter}
         GROUP BY LOWER(killed_player)
         ORDER BY cnt DESC
         LIMIT 10
     """, tuple(kill_params))
 
-    # Death Leaderboard Abfrage mit Datumsfilter
-    death_params = [player_lower, player_lower] + date_params
+    # Vereinfachte Death-Leaderboard-Abfrage
+    death_params = [player_lower, player_lower, 'unknown'] + date_params
     death_data = database.fetch_query(f"""
         SELECT killer, COUNT(*) as cnt
         FROM kills
         WHERE LOWER(killed_player) = ?
-          AND LENGTH(killer) <= 35
-          AND LOWER(killer) NOT IN (SELECT LOWER(npc_name) FROM npc_categories)
           AND LOWER(killer) <> ?
-          AND LOWER(killer) <> 'unknown'
+          AND LOWER(killer) <> ?
+          AND NOT (
+              LOWER(killer) LIKE 'vlk_%'
+              OR LOWER(killer) LIKE 'pu_%'
+              OR LOWER(killer) LIKE 'kopion_%'
+              OR LOWER(killer) LIKE 'quasigrazer_%'
+          )
           {date_filter}
         GROUP BY LOWER(killer)
         ORDER BY cnt DESC
         LIMIT 10
     """, tuple(death_params))
+
+    # Debug-Ausgabe
+    print(f"[INFO] Kill-Leaderboard: {len(kill_data)} Einträge gefunden")
+    print(f"[INFO] Death-Leaderboard: {len(death_data)} Einträge gefunden")
 
     return kill_data or [], death_data or []

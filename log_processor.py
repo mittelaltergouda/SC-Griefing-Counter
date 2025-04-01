@@ -48,10 +48,10 @@ def process_log_file(file_path):
                 victim = event["killed_player"].strip().lower()
                 # Only store events where the current player is killer or victim
                 if killer == player or victim == player:
-                    # Auto-categorize NPCs
+                    # Auto-categorize NPCs - erweitert um weitere NPC-Präfixe
                     for key in ("killed_player", "killer"):
                         val = event[key].strip().lower()
-                        if val.startswith("pu_"):
+                        if val.startswith("pu_") or val.startswith("vlk_") or val.startswith("kopion_") or val.startswith("quasigrazer_"):
                             npc_handler.save_npc_category(val, "uncategorized")
 
                     new_events.append((

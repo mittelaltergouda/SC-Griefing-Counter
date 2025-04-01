@@ -121,6 +121,9 @@ class GriefingCounterApp(tk.Tk):
         # Initialize logging
         self.logger = logging.getLogger(__name__)
         
+        # Initialisiere die Datenbank hier bereits
+        database.init_db()
+        
         # Speichere die aktiven Filter als Instanzvariablen
         self.active_start_date = None
         self.active_end_date = None
@@ -428,7 +431,6 @@ class GriefingCounterApp(tk.Tk):
     def load_data(self):
         """Enhanced data loading with error handling"""
         try:
-            database.init_db()
             live_log = os.path.join(config.LIVE_FOLDER, config.GAME_LOG_FILENAME)
             
             if not os.path.exists(live_log):
