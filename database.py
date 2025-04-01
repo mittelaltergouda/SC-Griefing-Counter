@@ -10,11 +10,16 @@ def init_db():
     """
     Initializes the database for the current player and creates necessary tables.
     """
+    # Stelle sicher, dass die Konfiguration geladen ist
+    if not config.CURRENT_PLAYER_NAME and os.path.exists(config.CONFIG_FILE):
+        config.load_config()
+
     db_path = config.get_db_name()
     if not db_path:
         print("[ERROR] No player name set. Cannot initialize database.")
         return
 
+    # Restlicher Code bleibt unverändert
     if not os.path.exists(db_path):
         print(f"[INFO] Creating new database file: {os.path.basename(db_path)}")
 
@@ -106,3 +111,20 @@ def get_db_size_kb():
     if not db_path or not os.path.exists(db_path):
         return 0
     return os.path.getsize(db_path) / 1024
+
+def ensure_db_initialized():
+    """
+    Ensures the database is initialized by calling init_db().
+    """
+    # Stelle sicher, dass die Konfiguration geladen ist
+    if not config.CURRENT_PLAYER_NAME and os.path.exists(config.CONFIG_FILE):
+        config.load_config()
+        
+    db_path = config.get_db_name()
+    if not db_path:
+        print("[ERROR] No player name set. Cannot initialize database.")
+        return
+
+    # Immer init_db aufrufen, um sicherzustellen, dass alle Tabellen existieren,
+    # auch wenn die Datenbankdatei bereits vorhanden ist
+    init_db()

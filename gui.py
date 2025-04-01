@@ -487,6 +487,15 @@ class GriefingCounterApp(tk.Tk):
             for key, var in self.entity_filters.items():
                 entity_filters[key] = var.get()
                 
+            # Wende automatisch einen leeren Filter an (entspricht "Clear Filter"), 
+            # damit die Daten direkt angezeigt werden
+            self.active_start_date = None
+            self.active_end_date = None
+            
+            # Wichtig: Wir rufen die Methode direkt auf und verwenden after(0), 
+            # um zu gewährleisten, dass die GUI-Updates im Hauptthread erfolgen
+            self.after(0, lambda: self.load_data_with_filters(None, None))
+            
             # Update der Daten mit aktiven Filtern
             self.update_stats()
             self.update_progress_info()
