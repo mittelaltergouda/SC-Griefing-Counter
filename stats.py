@@ -91,17 +91,19 @@ def get_stats(start_date=None, end_date=None):
 
     npc_dict = npc_handler.load_all_npc_categories()
 
-    # Initialisiere Zählvariablen
+    # Initialisiere Zählvariablen mit allen NPC-Kategorien
     kill_counts = {
         "players": 0, "npc_pilot": 0, "npc_civilian": 0, "npc_worker": 0,
         "npc_lawenforcement": 0, "npc_gunner": 0, "npc_technical": 0,
-        "npc_test": 0, "npc_uncategorized": 0
+        "npc_test": 0, "npc_pirate": 0, "npc_ground": 0, "npc_animal": 0,
+        "npc_uncategorized": 0
     }
-    # Initialize Death Breakdown counters (add "unknown")
+    # Initialisiere Death Breakdown Zähler (mit "unknown")
     death_counts = {
         "players": 0, "npc_pilot": 0, "npc_civilian": 0, "npc_worker": 0,
         "npc_lawenforcement": 0, "npc_gunner": 0, "npc_technical": 0,
-        "npc_test": 0, "npc_uncategorized": 0, "unknown": 0
+        "npc_test": 0, "npc_pirate": 0, "npc_ground": 0, "npc_animal": 0,
+        "npc_uncategorized": 0, "unknown": 0
     }
 
     for (victim,) in kills_detail:
@@ -131,6 +133,9 @@ def get_stats(start_date=None, end_date=None):
         f"Kills Breakdown:\n"
         f"  Player Kills: {kill_counts['players']}\n"
         f"  NPC Pilot Kills: {kill_counts.get('npc_pilot', 0)}\n"
+        f"  NPC Ground Kills: {kill_counts.get('npc_ground', 0)}\n"
+        f"  NPC Pirate Kills: {kill_counts.get('npc_pirate', 0)}\n"
+        f"  NPC Animal Kills: {kill_counts.get('npc_animal', 0)}\n"
         f"  NPC Civilian Kills: {kill_counts.get('npc_civilian', 0)}\n"
         f"  NPC Worker Kills: {kill_counts.get('npc_worker', 0)}\n"
         f"  NPC Law Enforcement Kills: {kill_counts.get('npc_lawenforcement', 0)}\n"
@@ -143,6 +148,9 @@ def get_stats(start_date=None, end_date=None):
         f"  Unknown Deaths: {death_counts.get('unknown', 0)}\n"
         f"  Suicides: {suicides}\n"
         f"  NPC Pilot Deaths: {death_counts.get('npc_pilot', 0)}\n"
+        f"  NPC Ground Deaths: {death_counts.get('npc_ground', 0)}\n"
+        f"  NPC Pirate Deaths: {death_counts.get('npc_pirate', 0)}\n"
+        f"  NPC Animal Deaths: {death_counts.get('npc_animal', 0)}\n"
         f"  NPC Civilian Deaths: {death_counts.get('npc_civilian', 0)}\n"
         f"  NPC Worker Deaths: {death_counts.get('npc_worker', 0)}\n"
         f"  NPC Law Enforcement Deaths: {death_counts.get('npc_lawenforcement', 0)}\n"

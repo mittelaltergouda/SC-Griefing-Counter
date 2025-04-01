@@ -11,15 +11,20 @@ def clean_npc_name(npc_name):
 def auto_categorize_npc(npc_name):
     """
     Automatically determines a category for an NPC based on keywords in the cleaned name.
-    Returns one of: pilot, gunner, ground, civilian, worker, lawenforcement, pirate, technical, test, or uncategorized.
+    Returns one of: pilot, gunner, ground, civilian, worker, lawenforcement, pirate, technical, test, animal, or uncategorized.
     """
     name = clean_npc_name(npc_name)
+    
+    # Tierkategorisierung basierend auf Präfixen
+    if any(name.startswith(prefix) for prefix in ["vlk_", "kopion_", "quasigrazer_"]):
+        return "animal"
+        
     if "pilot" in name:
         return "pilot"
     if "gunner" in name:
         return "gunner"
     if any(k in name for k in ["ground", "soldier", "cqc", "juggernaut", "sniper",
-                               "gangster", "grunt", "kareah", "militia"]):
+                               "gangster", "grunt", "kareah", "militia", "superboss"]):
         return "ground"
     if "civilian" in name or ("populace" in name and "worker" not in name):
         return "civilian"
