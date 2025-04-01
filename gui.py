@@ -132,6 +132,9 @@ class GriefingCounterApp(tk.Tk):
         # Initialize UI components
         self.setup_ui()
         self.setup_observers()
+        
+        # Automatisch den Apply Button klicken beim Start der Anwendung
+        self.after(1000, self.on_apply_player_name)
 
     def setup_ui(self):
         """Separate UI initialization"""
@@ -461,6 +464,9 @@ class GriefingCounterApp(tk.Tk):
             self.observer = None
 
         threading.Thread(target=self.load_data, daemon=True).start()
+        
+        # Warte einen kurzen Moment und drücke dann automatisch den Apply Filter-Button
+        self.after(3000, self.apply_entity_filter)
 
     def start_loading_animation(self):
         """Diese Methode tut nichts mehr, da die Loading-Animation entfernt wurde."""
@@ -492,12 +498,13 @@ class GriefingCounterApp(tk.Tk):
             self.active_start_date = None
             self.active_end_date = None
             
-            # Wichtig: Wir rufen die Methode direkt auf und verwenden after(0), 
-            # um zu gewährleisten, dass die GUI-Updates im Hauptthread erfolgen
-            self.after(0, lambda: self.load_data_with_filters(None, None))
+            # Verarbeite die Daten im Hauptthread, um sicherzustellen,
+            # dass sie angezeigt werden, bevor andere Aktualisierungen erfolgen
+            # Der Aufruf erfolgt direkt, nicht über einen separaten Thread
+            self.load_data_with_filters(None, None)
             
-            # Update der Daten mit aktiven Filtern
-            self.update_stats()
+            # Update der Daten mit aktiven Filtern 
+            # (wird jetzt erst NACH dem vollständigen Anzeigen der Daten aufgerufen)
             self.update_progress_info()
             
             # Aktualisiere die Anzeige der aktiven Filter in den Eingabefeldern, falls sie von außen gesetzt wurden
