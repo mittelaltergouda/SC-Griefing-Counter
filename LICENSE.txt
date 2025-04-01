@@ -5,38 +5,107 @@ Copyright (c) 2025
 Mittelalter Gouda. Alle Rechte vorbehalten.
 
 1. Gegenstand der Lizenz  
-Der Quellcode dieses Projekts ("Griefing Counter") wird ausschließlich zum Zweck der Einsicht und Überprüfung bereitgestellt. Hiermit wird kein Nutzungsrecht (einschließlich, aber nicht beschränkt auf Vervielfältigung, Modifikation, Verbreitung, öffentliche Zugänglichmachung oder anderweitige Verwertung) eingeräumt – weder zu kommerziellen noch zu nicht-kommerziellen Zwecken.
+Der Quellcode dieses Projekts ("Griefing Counter") wird ausschließlich  
+zum Zweck der Einsicht und Überprüfung bereitgestellt. Hiermit wird  
+kein weitergehendes Nutzungsrecht (einschließlich, aber nicht beschränkt  
+auf Vervielfältigung, Modifikation, Verbreitung, öffentliche Zugänglichmachung  
+oder anderweitige Verwertung) eingeräumt – weder zu kommerziellen noch  
+zu nicht-kommerziellen Zwecken.
 
 2. Erlaubte Handlungen  
 - Einsehen und Analysieren:  
   Das bloße Anschauen, Lesen und Analysieren des Quellcodes ist gestattet.  
-- Temporäres Speichern zum persönlichen Gebrauch:  
-  Das vorübergehende Speichern des Codes (z. B. im Cache) ausschließlich zum Zwecke der Ansicht ist gestattet, sofern dadurch kein dauerhaftes Nutzungsrecht begründet wird.
+- Herunterladen, Caching und temporäres Speichern:  
+  Das Herunterladen des Quellcodes – etwa zur Einsichtnahme oder zur  
+  Erstellung eines Pull Requests – sowie das vorübergehende Speichern  
+  (z. B. im Cache) sind ausdrücklich gestattet, sofern diese Maßnahmen  
+  ausschließlich dem Zweck der Ansicht, Analyse und Beitragserstellung  
+  dienen und kein dauerhaftes Nutzungsrecht begründet wird.
+
+2a. Nutzung des Programms  
+Nutzern des Programms wird gestattet, die Anwendung auszuführen und  
+zu verwenden, soweit dies für den operativen Betrieb erforderlich ist.  
+Diese Nutzung umfasst ausschließlich die Ausführung des Programms  
+und berechtigt nicht zur Wiederverwendung, Modifikation oder Weitergabe  
+des Quellcodes.
 
 3. Verbotene Handlungen  
-Jegliche Handlung, die über die reine Ansicht hinausgeht, ist untersagt. Insbesondere ist es verboten:  
-- Den Quellcode in irgendeiner Form zu vervielfältigen, zu verbreiten oder öffentlich zugänglich zu machen.  
-- Den Quellcode zu modifizieren, zu übersetzen, abgeleitete Werke zu erstellen oder in irgendeiner Weise zu nutzen.  
-- Reverse Engineering, Dekompilierung oder Disassemblierung durchzuführen, sofern dies nicht aufgrund zwingender gesetzlicher Vorschriften (z. B. zur Sicherstellung der Interoperabilität) erforderlich ist. In Fällen, in denen eine gesetzlich gestattete Maßnahme vorliegt, ist der Nutzer verpflichtet, sich schriftlich mit Mittelalter Gouda in Verbindung zu setzen, um die Rahmenbedingungen zu klären.
+Jegliche Handlung, die über die in den Absätzen 2 und 2a ausdrücklich  
+zugelassenen Maßnahmen hinausgeht, ist untersagt. Insbesondere ist es  
+verboten:  
+- Den Quellcode in irgendeiner Form zu vervielfältigen, zu verbreiten  
+  oder öffentlich zugänglich zu machen.  
+- Den Quellcode zu modifizieren, zu übersetzen, abgeleitete Werke zu  
+  erstellen oder in irgendeiner Weise zu nutzen – außer zur Erstellung  
+  von Pull Requests gemäß Absatz 2.  
+- Reverse Engineering, Dekompilierung oder Disassemblierung  
+  durchzuführen, sofern nicht zwingende gesetzliche Vorschriften (z. B.  
+  zur Sicherstellung der Interoperabilität) dies ausdrücklich erlauben.  
+  In solchen Fällen ist der Nutzer verpflichtet, sich vor Durchführung  
+  der Maßnahmen schriftlich mit Mittelalter Gouda abzustimmen.
 
-4. Haftungsausschluss und Gewährleistung  
-Der Quellcode wird "wie besehen" bereitgestellt – ohne jegliche ausdrückliche oder stillschweigende Gewährleistung, insbesondere ohne Gewährleistung der Marktgängigkeit, Eignung für einen bestimmten Zweck oder Nichtverletzung von Rechten Dritter.  
-Soweit gesetzlich zulässig, schließt Mittelalter Gouda jegliche Haftung aus – insbesondere für direkte, indirekte, zufällige oder Folgeschäden, die aus der Nutzung oder der Unmöglichkeit der Nutzung des Quellcodes entstehen.
+4. Beiträge  
+Externe Beiträge, wie Änderungen, Erweiterungen oder Ergänzungen, die  
+mittels Pull Request an Mittelalter Gouda übermittelt werden, sind  
+ausdrücklich erwünscht. Mit der Übermittlung eines solchen Beitrags  
+erklärt sich der Beitragende ausdrücklich damit einverstanden, dass  
+sein Beitrag – sofern er von Mittelalter Gouda angenommen und in die  
+offizielle Version des Projekts integriert wird – unverzüglich und  
+unwiderruflich unter die Bedingungen dieser Lizenz gestellt wird.  
+Der Beitragende räumt Mittelalter Gouda hiermit das nicht ausschließliche,  
+weltweite, gebührenfreie und unwiderrufliche Recht ein, seinen Beitrag  
+im Rahmen des Projekts zu nutzen, zu modifizieren, zu verbreiten und zu  
+veröffentlichen. Weitergehende Nutzungsrechte bleiben beim Beitragenden.
 
-5. Rechtsfolgen bei Zuwiderhandlungen  
-Verstöße gegen die Bestimmungen dieser Lizenz gelten als erheblicher Vertragsbruch und berechtigen Mittelalter Gouda dazu, unverzüglich alle rechtlichen Schritte einzuleiten, einschließlich der Geltendmachung von Schadensersatz- und Unterlassungsansprüchen. Vor Einleitung rechtlicher Maßnahmen behält sich Mittelalter Gouda das Recht vor, dem Nutzer eine angemessene Frist zur Abhilfe zu setzen.
+5. Änderung der Lizenz und künftige Relizenzierung  
+Mittelalter Gouda behält sich das Recht vor, den Quellcode – einschließlich  
+des von externen Beitragenden beigesteuerten Codes – zu einem späteren  
+Zeitpunkt unter eine andere Lizenz zu stellen, beispielsweise als Open-Source-  
+Lizenz oder zur Nutzung in einem anderen Projekt. Durch die Übermittlung  
+eines Beitrags erklärt sich der Beitragende ausdrücklich damit ein, dass  
+sein Beitrag auch im Rahmen einer künftigen Lizenzänderung ohne weitere  
+Zustimmung neu lizenziert werden kann. Diese Zustimmung gilt als unwiderruflich  
+und erstreckt sich auf alle zukünftigen Lizenzformen, soweit dies zur Integration  
+des Beitrags in das Projekt erforderlich ist.
 
 6. Einbeziehung in den Lizenzvertrag  
-Diese Lizenzbedingungen gelten als vereinbart, sobald der Quellcode öffentlich zugänglich gemacht wird. Nutzer werden durch einen Hinweis in den Quellcodedateien sowie in der beiliegenden Lizenzdatei ausdrücklich auf diese Bedingungen hingewiesen. Eine fortgesetzte Einsichtnahme in den Quellcode gilt als stillschweigende Zustimmung zu diesen Bedingungen.
+Diese Lizenzbedingungen gelten als vereinbart, sobald der Quellcode  
+öffentlich zugänglich gemacht wird. Nutzer werden durch einen Hinweis  
+in zentralen Projektdateien (z. B. in der README und LICENSE.txt)  
+ausdrücklich auf diese Bedingungen hingewiesen. Eine fortgesetzte Einsichtnahme  
+in den Quellcode gilt als stillschweigende Zustimmung zu diesen Bedingungen.
 
-7. Gerichtsstand und anwendbares Recht  
-Diese Lizenz unterliegt ausschließlich dem Recht der Bundesrepublik Deutschland. Ausschließlicher Gerichtsstand für sämtliche Streitigkeiten aus oder im Zusammenhang mit dieser Lizenz ist Bonn.
+7. Haftungsausschluss und Gewährleistung  
+Der Quellcode wird "wie besehen" bereitgestellt – ohne jegliche ausdrückliche  
+oder stillschweigende Gewährleistung, insbesondere ohne Gewährleistung  
+der Marktgängigkeit, Eignung für einen bestimmten Zweck oder Nichtverletzung  
+von Rechten Dritter. Soweit gesetzlich zulässig, schließt Mittelalter Gouda  
+jegliche Haftung aus – mit der Einschränkung, dass Ansprüche wegen  
+Vorsatzes oder grober Fahrlässigkeit unberührt bleiben.
 
-8. Salvatorische Klausel  
-Sollte eine Bestimmung dieser Lizenz ganz oder teilweise unwirksam oder undurchführbar sein, so bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Anstelle der unwirksamen Bestimmung tritt eine Regelung, die dem wirtschaftlichen Zweck der unwirksamen Bestimmung in rechtlich zulässiger Weise am nächsten kommt.
+8. Rechtsfolgen bei Zuwiderhandlungen  
+Verstöße gegen die Bestimmungen dieser Lizenz gelten als erheblicher  
+Vertragsbruch und berechtigen Mittelalter Gouda dazu, unverzüglich alle  
+rechtlichen Schritte einzuleiten, einschließlich der Geltendmachung von  
+Schadensersatz- und Unterlassungsansprüchen. Vor Einleitung rechtlicher  
+Maßnahmen behält sich Mittelalter Gouda das Recht vor, dem Nutzer eine  
+angemessene Frist zur Abhilfe zu setzen.
 
-9. Maßgeblichkeit der Sprachversion  
-Sollte es zu Unstimmigkeiten zwischen der deutschen und der englischen Fassung dieser Lizenz kommen, ist die deutsche Version maßgeblich.
+9. Gerichtsstand und anwendbares Recht  
+Diese Lizenz unterliegt ausschließlich dem Recht der Bundesrepublik  
+Deutschland. Ausschließlicher Gerichtsstand für sämtliche Streitigkeiten  
+aus oder im Zusammenhang mit dieser Lizenz ist Bonn.
+
+10. Salvatorische Klausel  
+Sollte eine Bestimmung dieser Lizenz ganz oder teilweise unwirksam oder  
+undurchführbar sein, so bleibt die Wirksamkeit der übrigen Bestimmungen  
+unberührt. Anstelle der unwirksamen Bestimmung tritt eine Regelung, die  
+dem wirtschaftlichen Zweck der unwirksamen Bestimmung in rechtlich zulässiger  
+Weise am nächsten kommt.
+
+11. Maßgeblichkeit der Sprachversion  
+Sollte es zu Unstimmigkeiten zwischen der deutschen und der englischen  
+Fassung dieser Lizenz kommen, ist die deutsche Version maßgeblich.
 
 ===========================================
 License for Griefing Counter (English)
@@ -45,35 +114,90 @@ Copyright (c) 2025
 Mittelalter Gouda. All rights reserved.
 
 1. Subject Matter of the License  
-The source code of this project ("Griefing Counter") is provided solely for the purpose of viewing and review. No rights of use are hereby granted – this includes, but is not limited to, the rights of reproduction, modification, distribution, public access, or any other form of exploitation, whether for commercial or non-commercial purposes.
+The source code of this project ("Griefing Counter") is provided solely  
+for the purpose of viewing and review. No rights of use are hereby granted –  
+this includes, but is not limited to, the rights of reproduction, modification,  
+distribution, public access, or any other form of exploitation, whether for  
+commercial or non-commercial purposes.
 
 2. Permitted Actions  
 - Viewing and Analysis:  
   The mere viewing, reading, and analysis of the source code is permitted.  
-- Temporary Storage for Personal Use:  
-  Temporarily storing the code (e.g., in cache) solely for the purpose of viewing is permitted, provided that this does not constitute a permanent grant of usage rights.
+- Downloading, Caching, and Temporary Storage:  
+  Downloading the source code – for instance, for viewing or for creating a  
+  pull request – as well as temporarily storing it (e.g., in cache) is expressly  
+  permitted, provided that such actions are solely for the purpose of viewing,  
+  analysis, and contribution creation and do not establish any permanent grant  
+  of usage rights.
+
+2a. Use of the Program  
+Users are permitted to execute and use the application for its intended  
+operational purposes. Such use is limited solely to operating the program  
+and does not grant any rights to reuse, modify, or distribute the source code.
 
 3. Prohibited Actions  
-Any action beyond mere viewing is prohibited. In particular, it is prohibited:  
-- To reproduce, distribute, or make the source code publicly available in any form.  
-- To modify, translate, create derivative works from, or otherwise utilize the source code in any manner.  
-- To engage in reverse engineering, decompilation, or disassembly, unless such actions are mandated by law (e.g., to ensure interoperability). In cases where a legally permitted instance applies, the user is obligated to contact Mittelalter Gouda in writing to clarify the conditions.
+Any action beyond those expressly permitted in Sections 2 and 2a is prohibited.  
+In particular, it is prohibited:  
+- To reproduce, distribute, or make the source code publicly available in  
+  any form.  
+- To modify, translate, create derivative works from, or otherwise utilize the  
+  source code in any manner, except as expressly permitted (e.g., for creating  
+  pull requests).  
+- To engage in reverse engineering, decompilation, or disassembly, unless such  
+  actions are explicitly allowed by mandatory legal provisions (e.g., to ensure  
+  interoperability). In cases where such legally permitted actions apply, the user  
+  is required to contact Mittelalter Gouda in writing prior to undertaking such  
+  measures.
 
-4. Disclaimer of Liability and Warranty  
-The source code is provided "as is" without any express or implied warranty – including but not limited to any warranty of merchantability, fitness for a particular purpose, or non-infringement of third-party rights.  
-To the extent permitted by law, Mittelalter Gouda disclaims all liability – including, but not limited to, direct, indirect, incidental, or consequential damages arising from the use or inability to use the source code.
+4. Contributions  
+External contributions, such as modifications, enhancements, or additions  
+submitted via pull request are expressly welcome. By submitting such a contribution,  
+the contributor expressly agrees that, if the contribution is accepted and integrated  
+into the official version of the project, it shall immediately and irrevocably become  
+subject to the terms of this license. The contributor hereby grants Mittelalter Gouda a  
+non-exclusive, worldwide, royalty-free, irrevocable license to use, modify, distribute,  
+and publish the contribution as part of the project. No further usage rights are granted  
+to the contributor.
 
-5. Legal Consequences of Breach  
-Any violation of the terms of this license shall be deemed a material breach and entitles Mittelalter Gouda to immediately pursue all legal remedies, including claims for damages and injunctive relief. Prior to initiating legal action, Mittelalter Gouda reserves the right to grant the user a reasonable period to remedy the breach.
+5. Future License Changes and Relicensing  
+Mittelalter Gouda reserves the right to relicense the source code – including any  
+contributions provided by external contributors – under a different license at a future  
+date, such as an open-source license or for use in another project. By submitting a  
+contribution, the contributor expressly agrees that, if the contribution is accepted, it  
+may be relicensed in accordance with any future license changes without further consent.  
+This agreement is irrevocable and applies to all future licensing forms to the extent  
+necessary for incorporating the contribution into the project.
 
 6. Incorporation into the License Agreement  
-These license terms shall be deemed agreed upon once the source code is made publicly accessible. Users are explicitly informed of these conditions by a reference in the source code files as well as in the accompanying license file. Continued access to the source code shall constitute implicit acceptance of these terms.
+These license terms shall be deemed agreed upon once the source code is made  
+publicly accessible. Users are explicitly informed of these conditions by a reference  
+in central project files (e.g., in the README and LICENSE.txt). Continued access to the  
+source code shall constitute implicit acceptance of these terms.
 
-7. Jurisdiction and Applicable Law  
-This license shall be governed exclusively by the laws of the Federal Republic of Germany. The exclusive jurisdiction for all disputes arising out of or in connection with this license is Bonn.
+7. Disclaimer of Liability and Warranty  
+The source code is provided "as is" without any express or implied warranty – including  
+but not limited to any warranty of merchantability, fitness for a particular purpose, or  
+non-infringement of third-party rights. To the extent permitted by law, Mittelalter Gouda  
+disclaims all liability – except for claims arising from intentional misconduct or gross  
+negligence.
 
-8. Severability Clause  
-Should any provision of this license be or become invalid or unenforceable in whole or in part, the validity of the remaining provisions shall not be affected. In place of the invalid provision, a regulation shall be deemed agreed upon which comes closest to the economic purpose of the invalid provision in a legally permissible manner.
+8. Legal Consequences of Breach  
+Any violation of the terms of this license shall be deemed a material breach and entitles  
+Mittelalter Gouda to immediately pursue all legal remedies, including claims for damages  
+and injunctive relief. Prior to initiating legal action, Mittelalter Gouda reserves the  
+right to grant the user a reasonable period to remedy the breach.
 
-9. Controlling Language Version  
-In the event of any discrepancies between the English and the German versions of this license, the German version shall prevail.
+9. Jurisdiction and Applicable Law  
+This license shall be governed exclusively by the laws of the Federal Republic of Germany.  
+The exclusive jurisdiction for all disputes arising out of or in connection with this license  
+is Bonn.
+
+10. Severability Clause  
+Should any provision of this license be or become invalid or unenforceable in whole or in  
+part, the validity of the remaining provisions shall not be affected. In place of the invalid  
+provision, a regulation shall be deemed agreed upon which comes closest to the economic  
+purpose of the invalid provision in a legally permissible manner.
+
+11. Controlling Language Version  
+In the event of any discrepancies between the English and the German versions of this  
+license, the German version shall prevail.
