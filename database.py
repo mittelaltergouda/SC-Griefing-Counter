@@ -2,22 +2,33 @@ import sqlite3
 import config
 import os
 import threading
+import time
 
 # Global lock for thread-safe DB operations
 db_lock = threading.Lock()
+
+# Variable zur Verfolgung, ob die Fehlermeldung bereits ausgegeben wurde
+_error_already_reported = False
 
 def init_db():
     """
     Initializes the database for the current player and creates necessary tables.
     """
+    global _error_already_reported
+    
     # Stelle sicher, dass die Konfiguration geladen ist
     if not config.CURRENT_PLAYER_NAME and os.path.exists(config.CONFIG_FILE):
         config.load_config()
 
     db_path = config.get_db_name()
     if not db_path:
-        print("[ERROR] No player name set. Cannot initialize database.")
+        if not _error_already_reported:
+            print("[ERROR] No player name set. Cannot initialize database.")
+            _error_already_reported = True
         return
+    else:
+        # Wenn ein Spielername gesetzt wurde, setzen wir den Fehler-Status zurück
+        _error_already_reported = False
 
     # Restlicher Code bleibt unverändert
     if not os.path.exists(db_path):
@@ -66,10 +77,16 @@ def execute_query(query, params=()):
     Executes a single query (INSERT, UPDATE, DELETE, or SELECT) on the player's DB.
     Returns rows if it's a SELECT, otherwise None.
     """
+    global _error_already_reported
+    
     db_path = config.get_db_name()
     if not db_path:
-        print("[ERROR] No player name set. Cannot execute query.")
+        if not _error_already_reported:
+            print("[ERROR] No player name set. Cannot execute query.")
+            _error_already_reported = True
         return None
+    else:
+        _error_already_reported = False
 
     with db_lock:
         conn = sqlite3.connect(db_path, timeout=30)
@@ -86,10 +103,17 @@ def execute_many(query, param_list):
     """
     Executes a batch query with multiple parameter sets (e.g. for inserting many rows).
     """
+    global _error_already_reported
+    
     db_path = config.get_db_name()
     if not db_path:
-        print("[ERROR] No player name set. Cannot execute many.")
+        if not _error_already_reported:
+            print("[ERROR] No player name set. Cannot execute many.")
+            _error_already_reported = True
         return
+    else:
+        _error_already_reported = False
+        
     with db_lock:
         conn = sqlite3.connect(db_path, timeout=30)
         c = conn.cursor()
@@ -116,14 +140,20 @@ def ensure_db_initialized():
     """
     Ensures the database is initialized by calling init_db().
     """
+    global _error_already_reported
+    
     # Stelle sicher, dass die Konfiguration geladen ist
     if not config.CURRENT_PLAYER_NAME and os.path.exists(config.CONFIG_FILE):
         config.load_config()
         
     db_path = config.get_db_name()
     if not db_path:
-        print("[ERROR] No player name set. Cannot initialize database.")
+        if not _error_already_reported:
+            print("[ERROR] No player name set. Cannot initialize database.")
+            _error_already_reported = True
         return
+    else:
+        _error_already_reported = False
 
     # Immer init_db aufrufen, um sicherzustellen, dass alle Tabellen existieren,
     # auch wenn die Datenbankdatei bereits vorhanden ist
