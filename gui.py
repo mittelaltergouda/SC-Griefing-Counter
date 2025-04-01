@@ -528,20 +528,48 @@ class GriefingCounterApp(tk.Tk):
         self.kill_text.yview_moveto(current_scroll[0])
 
     def auto_refresh_loop(self):
-        while True:
-            interval = self.var_refresh_interval.get()
-            self.current_countdown = interval + 1
-            while self.current_countdown > 1:
-                self.var_countdown.set(f"Next refresh: {self.current_countdown - 1} sec")
-                time.sleep(1)
-                new_interval = self.var_refresh_interval.get()
-                if new_interval != interval:
-                    interval = new_interval
-                    self.current_countdown = interval + 1
-                else:
-                    self.current_countdown -= 1
-            self.var_countdown.set("Refreshing...")
-            self.refresh_data()
+        """Loop für die automatische Aktualisierung der Daten."""
+        self.auto_refresh_running = True
+        self.logger.info("Auto-Refresh-Loop gestartet")
+        
+        try:
+            while self.auto_refresh_running:
+                interval = self.var_refresh_interval.get()
+                # Sicherstellen, dass der Intervall im gültigen Bereich liegt
+                interval = max(RefreshSettings.MIN_INTERVAL, min(interval, RefreshSettings.MAX_INTERVAL))
+                self.current_countdown = interval + 1
+                
+                self.logger.debug(f"Auto-Refresh: Nächste Aktualisierung in {interval} Sekunden")
+                
+                # Countdown starten
+                while self.current_countdown > 1 and self.auto_refresh_running:
+                    # GUI-Aktualisierung aus dem Thread heraus mit after()
+                    self.after(0, lambda count=self.current_countdown-1: 
+                              self.var_countdown.set(f"Next refresh: {count} sec"))
+                    
+                    time.sleep(1)
+                    # Prüfen, ob sich das Intervall geändert hat
+                    new_interval = self.var_refresh_interval.get()
+                    if new_interval != interval:
+                        self.logger.debug(f"Auto-Refresh: Intervall geändert von {interval} auf {new_interval}")
+                        interval = new_interval
+                        self.current_countdown = interval + 1
+                    else:
+                        self.current_countdown -= 1
+                
+                # Nur aktualisieren, wenn der Thread noch laufen soll
+                if self.auto_refresh_running:
+                    self.logger.info("Auto-Refresh: Daten werden aktualisiert")
+                    # GUI-Aktualisierung aus dem Thread heraus
+                    self.after(0, lambda: self.var_countdown.set("Refreshing..."))
+                    # Den Refresh über die GUI planen statt direkt aufzurufen
+                    self.after(0, self.refresh_data)
+        except Exception as e:
+            self.logger.error(f"Fehler im Auto-Refresh-Loop: {str(e)}", exc_info=True)
+            # Versuche, den Loop wieder zu starten
+            self.after(5000, lambda: threading.Thread(target=self.auto_refresh_loop, daemon=True).start())
+        
+        self.logger.info("Auto-Refresh-Loop beendet")
 
     def update_stats(self):
         """Aktualisiert Stats, Leaderboards und Recent Kill Events in der GUI."""
