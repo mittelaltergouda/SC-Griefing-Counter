@@ -27,10 +27,17 @@ DB_FOLDER = "databases"
 CURRENT_PLAYER_NAME = ""
 LOGGING_ENABLED = True  # Standardmäßig ist Logging aktiviert
 LOGGING_LEVEL = "INFO"  # Standardmäßig auf INFO-Level
+REFRESH_INTERVAL = 30   # Standardmäßig 30 Sekunden
+
+# NPC-Typen für Filter
+NPC_CATEGORIES = [
+    "pilot", "gunner", "ground", "civilian", "worker", 
+    "lawenforcement", "pirate", "technical", "test", "animal", "uncategorized"
+]
 
 def load_config():
     """Loads the configuration file and sets global variables."""
-    global CURRENT_PLAYER_NAME, LOGGING_ENABLED, LOGGING_LEVEL
+    global CURRENT_PLAYER_NAME, LOGGING_ENABLED, LOGGING_LEVEL, REFRESH_INTERVAL
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             for line in f:
@@ -41,6 +48,13 @@ def load_config():
                     LOGGING_ENABLED = line.split("=")[1].lower() == "true"
                 elif line.startswith("LOGGING_LEVEL="):
                     LOGGING_LEVEL = line.split("=")[1].upper()
+                elif line.startswith("REFRESH_INTERVAL="):
+                    try:
+                        interval = int(line.split("=")[1])
+                        REFRESH_INTERVAL = max(1, min(interval, 10000))  # Begrenze auf sinnvolle Werte
+                    except ValueError:
+                        # Bei Fehler Standard verwenden
+                        pass
     else:
         save_config()
 
@@ -54,7 +68,10 @@ def save_config():
         f.write(f"LOGGING_ENABLED={'true' if LOGGING_ENABLED else 'false'}\n\n")
 
         f.write("# Logging-Level: DEBUG, INFO, WARNING, ERROR, CRITICAL\n")
-        f.write(f"LOGGING_LEVEL={LOGGING_LEVEL}\n")
+        f.write(f"LOGGING_LEVEL={LOGGING_LEVEL}\n\n")
+        
+        f.write("# Automatische Aktualisierungsintervall in Sekunden\n")
+        f.write(f"REFRESH_INTERVAL={REFRESH_INTERVAL}\n")
 
 def get_db_name():
     """

@@ -13,18 +13,46 @@ def auto_categorize_npc(npc_name):
     Automatically determines a category for an NPC based on keywords in the cleaned name.
     Returns one of: pilot, gunner, ground, civilian, worker, lawenforcement, pirate, technical, test, animal, or uncategorized.
     """
-    name = clean_npc_name(npc_name)
+    name = clean_npc_name(npc_name).lower()
+    
+    # Spezieller Fall für Hazard_hangar_medfrnt_dungeon_exec_rund - als unknown behandeln
+    if "hazard_hangar_medfrnt_dungeon_exec_rund" in name.lower():
+        return "unknown"
     
     # Tierkategorisierung basierend auf Präfixen
     if any(name.startswith(prefix) for prefix in ["vlk_", "kopion_", "quasigrazer_"]):
         return "animal"
         
+    # NPC_Archetypes-Kategorisierung - diese sollten NIEMALS als Spieler klassifiziert werden
+    if "npc_archetypes" in name:
+        if "soldier" in name or "juggernaut" in name:
+            return "ground"
+        elif "pilot" in name:
+            return "pilot"
+        elif "techie" in name or "technical" in name:
+            return "technical"
+        elif "prisoner" in name or "civilian" in name:
+            return "civilian"
+        else:
+            # Allgemeine NPC_Archetypes als Grundeinheit einstufen
+            return "ground"
+    
+    # Hazard-Dungeon-NPCs erkennen (außer den speziell behandelten Fall)
+    if "hazard" in name and "dungeon" in name:
+        if "exec" in name:
+            return "ground"  # Executive NPCs in Hazard-Dungeons
+        elif "medic" in name or "med" in name:
+            return "technical"  # Medics in Hazard-Dungeons
+        else:
+            return "ground"  # Standard-Einstufung für Hazard-Dungeon-NPCs
+    
     if "pilot" in name:
         return "pilot"
     if "gunner" in name:
         return "gunner"
     if any(k in name for k in ["ground", "soldier", "cqc", "juggernaut", "sniper",
-                               "gangster", "grunt", "kareah", "militia", "superboss"]):
+                               "gangster", "grunt", "kareah", "militia", "superboss",
+                               "exec", "executive"]):
         return "ground"
     if "civilian" in name or ("populace" in name and "worker" not in name):
         return "civilian"
@@ -34,10 +62,16 @@ def auto_categorize_npc(npc_name):
         return "lawenforcement"
     if "pirate" in name:
         return "pirate"
-    if any(k in name for k in ["engineer", "technical"]):
+    if any(k in name for k in ["engineer", "technical", "techie", "medic"]):
         return "technical"
     if "test" in name:
         return "test"
+    # Allgemeine Cheesecake-Archetypes als Grundeinheit einstufen
+    if "cheesecake" in name:
+        return "ground"
+    # Wenn 'hazard' im Namen ist, aber nicht genauer kategorisiert werden kann
+    if "hazard" in name:
+        return "ground"
     return "uncategorized"
 
 def get_npc_category(npc_name):

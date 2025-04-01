@@ -103,7 +103,7 @@ class LeaderboardWidget(ttk.Frame):
 
 class GriefingCounterApp(tk.Tk):
     """
-    Tkinter GUI (Version 0.6.7) mit:
+    Tkinter GUI mit:
     - Verbesserter Logimport-Statusanzeige
     - Countdown-Timer, der sich an der Refresh-Zeit orientiert
     - Zwei Leaderboards (Kill Leaderboard, Death Leaderboard) mit klickbaren (hyperlink-ähnlichen) Spielernamen
@@ -114,7 +114,7 @@ class GriefingCounterApp(tk.Tk):
     """
     def __init__(self):
         super().__init__()
-        self.title("Griefing Counter v0.6.7")
+        self.title("Griefing Counter")
         self.geometry(WindowSettings.DEFAULT_SIZE)
         self.minsize(WindowSettings.MIN_WIDTH, WindowSettings.MIN_HEIGHT)
         
@@ -125,6 +125,7 @@ class GriefingCounterApp(tk.Tk):
         database.init_db()
         
         # Speichere die aktiven Filter als Instanzvariablen
+        # Setze standardmäßig kein Datum (Clear)
         self.active_start_date = None
         self.active_end_date = None
         
@@ -180,7 +181,7 @@ class GriefingCounterApp(tk.Tk):
         self.btn_apply.pack(side=tk.LEFT, padx=5)
 
         # Refresh Interval
-        self.var_refresh_interval = tk.IntVar(value=RefreshSettings.DEFAULT_INTERVAL)
+        self.var_refresh_interval = tk.IntVar(value=config.REFRESH_INTERVAL)
         self.spin_refresh = ttk.Spinbox(
             self.top_frame, from_=RefreshSettings.MIN_INTERVAL, 
             to=RefreshSettings.MAX_INTERVAL, 
@@ -203,12 +204,6 @@ class GriefingCounterApp(tk.Tk):
         self.lbl_progress = ttk.Label(self.top_frame, textvariable=self.var_progress, 
                                       foreground=Colors.PROGRESS.value)
         self.lbl_progress.pack(side=tk.LEFT, padx=10)
-
-        # Loading Animation
-        self.var_loading = tk.StringVar(value="")
-        self.lbl_loading = ttk.Label(self.top_frame, textvariable=self.var_loading, 
-                                      foreground=Colors.LOADING.value)
-        self.lbl_loading.pack(side=tk.RIGHT, padx=10)
 
         # Erstelle einen Frame für die Datumsauswahl
         self.date_frame = ttk.LabelFrame(self.top_frame, text="Filter by Date")
@@ -240,6 +235,8 @@ class GriefingCounterApp(tk.Tk):
                 textvariable=self.var_start_date
             )
             self.entry_start_date.pack(side=tk.TOP, padx=5, pady=2)
+            # Setze das Datum auf leer (durch leeren der Variable)
+            self.var_start_date.set("")
             
             # Kalender-Widget für das Enddatum
             self.entry_end_date = DateEntry(
@@ -252,6 +249,8 @@ class GriefingCounterApp(tk.Tk):
                 textvariable=self.var_end_date
             )
             self.entry_end_date.pack(side=tk.TOP, padx=5, pady=2)
+            # Setze das Datum auf leer (durch leeren der Variable)
+            self.var_end_date.set("")
             
         else:
             # Standard-Textfelder, wenn kein Kalender verfügbar ist
@@ -270,6 +269,57 @@ class GriefingCounterApp(tk.Tk):
         # Clear Filter Button
         self.btn_clear_filter = ttk.Button(self.date_frame, text="Clear Filter", command=self.clear_date_filter)
         self.btn_clear_filter.pack(side=tk.LEFT, padx=5, pady=5)
+        
+        # Entity Filter Frame für Spieler und NPC-Kategorien
+        # Einen neuen separaten Frame für die Entity-Filter unter dem Date-Filter erstellen
+        self.filter_section = tk.Frame(self)
+        self.filter_section.pack(side=tk.TOP, fill=tk.X, pady=5, padx=10)
+        
+        # Entity-Filter-Frame
+        self.entity_filter_frame = ttk.LabelFrame(self.filter_section, text="Entity Filter")
+        self.entity_filter_frame.pack(fill=tk.X, padx=5)
+        
+        # Erstelle einen horizontalen Frame für alle Filter
+        horizontal_filter_frame = tk.Frame(self.entity_filter_frame)
+        horizontal_filter_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Wir verwenden Checkboxen für die Entity-Filter
+        self.entity_filters = {}
+        
+        # Select All Filter
+        self.var_select_all = tk.BooleanVar(value=True)
+        select_all_cb = ttk.Checkbutton(horizontal_filter_frame, text="Select All", 
+                       variable=self.var_select_all,
+                       command=self.toggle_all_filters)
+        select_all_cb.pack(side=tk.LEFT, padx=5)
+        
+        # Spieler-Filter
+        self.var_players_filter = tk.BooleanVar(value=True)
+        self.entity_filters["players"] = self.var_players_filter
+        ttk.Checkbutton(horizontal_filter_frame, text="Players", 
+                       variable=self.var_players_filter,
+                       command=self.apply_entity_filter).pack(side=tk.LEFT, padx=5)
+        
+        # Unknown-Filter
+        self.var_unknown_filter = tk.BooleanVar(value=True)
+        self.entity_filters["unknown"] = self.var_unknown_filter
+        ttk.Checkbutton(horizontal_filter_frame, text="Unknown", 
+                       variable=self.var_unknown_filter,
+                       command=self.apply_entity_filter).pack(side=tk.LEFT, padx=5)
+        
+        # Trennlinie
+        ttk.Separator(horizontal_filter_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=10, fill='y')
+        
+        # NPC-Filter-Label
+        ttk.Label(horizontal_filter_frame, text="NPCs:").pack(side=tk.LEFT, padx=5)
+        
+        # Alle NPC-Kategorien horizontal anordnen
+        for category in config.NPC_CATEGORIES:
+            var = tk.BooleanVar(value=True)
+            self.entity_filters[f"npc_{category}"] = var
+            ttk.Checkbutton(horizontal_filter_frame, text=category.capitalize(), 
+                          variable=var,
+                          command=self.apply_entity_filter).pack(side=tk.LEFT, padx=5)
 
     def apply_date_filter(self):
         """Apply date filter and refresh data."""
@@ -290,14 +340,18 @@ class GriefingCounterApp(tk.Tk):
             return
         
         self.logger.info("Starte Datenladung mit Filtern...")
-        self.start_loading_animation()
         threading.Thread(target=self.load_data_with_filters, args=(self.active_start_date, self.active_end_date), daemon=True).start()
 
     def load_data_with_filters(self, start_date, end_date):
         """Load data with date filters."""
         try:
-            self.logger.info(f"Lade Daten mit Filtern: Start={start_date}, Ende={end_date}")
-            stats_text, recent_text = stats.get_stats(start_date, end_date)
+            # Hole aktuelle Entity-Filter
+            entity_filters = {}
+            for key, var in self.entity_filters.items():
+                entity_filters[key] = var.get()
+                
+            self.logger.info(f"Lade Daten mit Filtern: Start={start_date}, Ende={end_date}, Entities={entity_filters}")
+            stats_text, recent_text = stats.get_stats(start_date, end_date, entity_filters)
             self.logger.info("Statistiken erfolgreich geladen")
             
             # Status-Update in der GUI - direkt über die tkinter Variable aktualisieren
@@ -322,7 +376,7 @@ class GriefingCounterApp(tk.Tk):
 
             # Update leaderboards mit den aktuellen Filtern
             self.logger.info("Aktualisiere Leaderboards mit Filtern")
-            kill_leaderboard, death_leaderboard = stats.get_leaderboards(start_date, end_date)
+            kill_leaderboard, death_leaderboard = stats.get_leaderboards(start_date, end_date, entity_filters)
             # Aktualisiere die Anzeige explizit
             self.after(0, lambda: self.kill_leaderboard_widget.update_data([LeaderboardEntry(name, count) for name, count in kill_leaderboard]))
             self.after(0, lambda: self.death_leaderboard_widget.update_data([LeaderboardEntry(name, count) for name, count in death_leaderboard]))
@@ -331,8 +385,6 @@ class GriefingCounterApp(tk.Tk):
         except Exception as e:
             self.logger.error(f"Fehler beim Laden von Daten mit Filtern: {str(e)}", exc_info=True)
             self.show_error(f"Failed to load data with filters: {str(e)}")
-        finally:
-            self.stop_loading_animation()
 
     def setup_main_frame(self):
         """Setup main frame UI components"""
@@ -389,7 +441,6 @@ class GriefingCounterApp(tk.Tk):
         
         if config.CURRENT_PLAYER_NAME:
             try:
-                self.start_loading_animation()
                 threading.Thread(target=self.load_data, daemon=True).start()
                 threading.Thread(target=self.auto_refresh_loop, daemon=True).start()
             except Exception as e:
@@ -409,24 +460,15 @@ class GriefingCounterApp(tk.Tk):
             self.observer.join()
             self.observer = None
 
-        self.start_loading_animation()
         threading.Thread(target=self.load_data, daemon=True).start()
 
     def start_loading_animation(self):
-        """Zeigt eine rotierende 'Loading...'-Animation in self.var_loading an."""
-        def animate():
-            while self.var_loading.get() == "Loading":
-                for dots in ["Loading", "Loading.", "Loading..", "Loading..."]:
-                    self.var_loading.set(dots)
-                    time.sleep(0.5)
-                    if self.var_loading.get() == "":
-                        return
-        self.var_loading.set("Loading")
-        threading.Thread(target=animate, daemon=True).start()
+        """Diese Methode tut nichts mehr, da die Loading-Animation entfernt wurde."""
+        pass
 
     def stop_loading_animation(self):
-        """Löscht den Loading-Text."""
-        self.var_loading.set("")
+        """Diese Methode tut nichts mehr, da die Loading-Animation entfernt wurde."""
+        pass
 
     def load_data(self):
         """Enhanced data loading with error handling"""
@@ -439,6 +481,12 @@ class GriefingCounterApp(tk.Tk):
                 
             log_processor.process_log_file(live_log)
             threading.Thread(target=log_processor.parse_all_backup_logs, daemon=True).start()
+            
+            # Hole die aktuellen Entity-Filter
+            entity_filters = {}
+            for key, var in self.entity_filters.items():
+                entity_filters[key] = var.get()
+                
             # Update der Daten mit aktiven Filtern
             self.update_stats()
             self.update_progress_info()
@@ -451,12 +499,9 @@ class GriefingCounterApp(tk.Tk):
         except Exception as e:
             self.logger.error(f"Error loading data: {str(e)}")
             self.show_error("Failed to load data")
-        finally:
-            self.stop_loading_animation()
 
     def refresh_data(self):
-        """Manueller Refresh mit Loading-Animation."""
-        self.start_loading_animation()
+        """Manueller Refresh."""
         threading.Thread(target=self.load_data_with_scroll_memory, daemon=True).start()
 
     def load_data_with_scroll_memory(self):
@@ -484,18 +529,22 @@ class GriefingCounterApp(tk.Tk):
 
     def update_stats(self):
         """Aktualisiert Stats, Leaderboards und Recent Kill Events in der GUI."""
+        # Hole aktuelle Entity-Filter
+        entity_filters = {}
+        for key, var in self.entity_filters.items():
+            entity_filters[key] = var.get()
+            
         # Verwende die gespeicherten Filter, falls vorhanden
-        stats_text, recent_text = stats.get_stats(self.active_start_date, self.active_end_date)
+        stats_text, recent_text = stats.get_stats(self.active_start_date, self.active_end_date, entity_filters)
         self.var_stats.set(stats_text)
 
         # Leaderboards aktualisieren mit den aktiven Filtern
-        kill_leaderboard, death_leaderboard = stats.get_leaderboards(self.active_start_date, self.active_end_date)
+        kill_leaderboard, death_leaderboard = stats.get_leaderboards(
+            self.active_start_date, self.active_end_date, entity_filters)
+            
+        # Alle Leaderboard-Einträge anzeigen, ohne den Unknwon-Filter
         self.kill_leaderboard_widget.update_data([LeaderboardEntry(name, count) for name, count in kill_leaderboard])
-        self.death_leaderboard_widget.update_data([
-            LeaderboardEntry(name, count) 
-            for name, count in death_leaderboard 
-            if name.lower() != "unknown"
-        ])
+        self.death_leaderboard_widget.update_data([LeaderboardEntry(name, count) for name, count in death_leaderboard])
 
         # Recent Kill Events in das Text-Widget einfügen, mit separater Formatierung:
         self.kill_text.config(state="normal")
@@ -562,8 +611,77 @@ class GriefingCounterApp(tk.Tk):
         self.var_end_date.set("")
         
         # Daten neu laden ohne Filter
-        self.start_loading_animation()
         threading.Thread(target=self.load_data_with_filters, args=(None, None), daemon=True).start()
+
+    def apply_entity_filter(self):
+        """Wendet die ausgewählten Entity-Filter an und aktualisiert die Anzeige."""
+        self.logger.info("Anwenden der Entity-Filter")
+        
+        # Erstelle ein Dictionary der aktuellen Filter-Zustände
+        entity_filters = {}
+        for key, var in self.entity_filters.items():
+            entity_filters[key] = var.get()
+            
+        self.logger.info(f"Aktive Entity-Filter: {entity_filters}")
+        
+        # Starte Datenladung mit aktualisierten Filtern
+        threading.Thread(target=self.load_data_with_all_filters, daemon=True).start()
+    
+    def load_data_with_all_filters(self):
+        """Lädt Daten mit allen aktiven Filtern (Datum und Entity)."""
+        try:
+            # Erstelle Entity-Filter-Dictionary
+            entity_filters = {}
+            for key, var in self.entity_filters.items():
+                entity_filters[key] = var.get()
+                
+            # Lade Daten mit allen Filtern
+            self.logger.info(f"Lade Daten mit Filtern: Start={self.active_start_date}, Ende={self.active_end_date}, Entities={entity_filters}")
+            stats_text, recent_text = stats.get_stats(self.active_start_date, self.active_end_date, entity_filters)
+            
+            # Aktualisiere die Anzeige
+            self.var_stats.set(stats_text)
+            
+            # Aktualisiere Recent Kill Events
+            self.kill_text.config(state="normal")
+            self.kill_text.delete("1.0", tk.END)
+            for line in recent_text.split("\n"):
+                if line.lower().startswith("killer:"):
+                    self.kill_text.insert(tk.END, "Killer: ", "normal")
+                    name = line[len("Killer: "):].strip()
+                    self.kill_text.insert(tk.END, name + "\n", "hyperlink")
+                elif line.lower().startswith("killed:"):
+                    self.kill_text.insert(tk.END, "Killed: ", "normal")
+                    name = line[len("Killed: "):].strip()
+                    self.kill_text.insert(tk.END, name + "\n", "hyperlink")
+                else:
+                    self.kill_text.insert(tk.END, line + "\n", "normal")
+            self.kill_text.config(state="disabled")
+            
+            # Aktualisiere Leaderboards
+            kill_leaderboard, death_leaderboard = stats.get_leaderboards(self.active_start_date, self.active_end_date, entity_filters)
+            # Aktualisiere die Leaderboard-Widgets im Hauptthread
+            self.after(0, lambda: self.kill_leaderboard_widget.update_data(
+                [LeaderboardEntry(name, count) for name, count in kill_leaderboard]))
+            self.after(0, lambda: self.death_leaderboard_widget.update_data(
+                [LeaderboardEntry(name, count) for name, count in death_leaderboard]))
+            
+            self.logger.info("Datenaktualisierung mit allen Filtern abgeschlossen")
+        except Exception as e:
+            self.logger.error(f"Fehler beim Laden von Daten mit allen Filtern: {str(e)}", exc_info=True)
+            self.show_error(f"Failed to load data with filters: {str(e)}")
+
+    def toggle_all_filters(self):
+        """Aktiviert oder deaktiviert alle Entity-Filter basierend auf der 'Select All'-Checkbox."""
+        # Status aller Checkboxen auf den Wert der "Select All"-Checkbox setzen
+        select_all_value = self.var_select_all.get()
+        
+        # Für alle Filter (Spieler, Unknown und NPC-Kategorien)
+        for key, var in self.entity_filters.items():
+            var.set(select_all_value)
+            
+        # Nach dem Ändern aller Filter die Daten aktualisieren
+        self.apply_entity_filter()
 
 def start_gui():
     """Entry point für die Tkinter-App."""

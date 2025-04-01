@@ -19,7 +19,22 @@ from datetime import datetime
 
 def clean_id(text):
     """Entfernt anhängende numerische IDs von Strings (z. B. NPC-Namen, Waffen)."""
-    return re.sub(r'(_\d+)$', '', text)
+    # Grundlegende ID-Entfernung
+    text = re.sub(r'(_\d+)$', '', text)
+    return text
+
+def clean_npc_name(name):
+    """Bereinigt NPC-Namen für die Kategorisierung und entfernt ID-Anhänge."""
+    if not name:
+        return ""
+    
+    # Zu Kleinbuchstaben konvertieren
+    name_lower = name.lower()
+    
+    # Entferne numerische IDs am Ende
+    clean_name = re.sub(r'(_\d+)$', '', name_lower)
+    
+    return clean_name
 
 def categorize_missing_npcs():
     """Durchsucht die Datenbank nach NPCs mit vlk_, kopion_, oder quasigrazer_ Präfixen, 
@@ -43,7 +58,19 @@ def categorize_missing_npcs():
     print(f"[INFO] Categorized {count} previously uncategorized NPCs")
     return count
 
-def get_stats(start_date=None, end_date=None):
+def get_stats(start_date=None, end_date=None, entity_filters=None):
+    """
+    Berechnet die Gesamt- und Detailstatistiken zu Kills/Deaths aus der Datenbank für den aktuellen Spieler.
+    
+    Args:
+        start_date (datetime, optional): Startdatum für die Filterung
+        end_date (datetime, optional): Enddatum für die Filterung
+        entity_filters (dict, optional): Filter für Entitätstypen (players, npcs, etc.)
+            Format: {'players': True, 'npc_pilot': False, ...}
+    
+    Returns:
+        tuple: (stats_text, recent_kill_events_text)
+    """
     if not config.CURRENT_PLAYER_NAME:
         return ("No player name set.", "No kill events to show.")
 
@@ -52,19 +79,48 @@ def get_stats(start_date=None, end_date=None):
     # Debugging: Log the filter parameters
     print(f"Fetching stats for player: {player_lower}")
     print(f"Start date: {start_date}, End date: {end_date}")
+    print(f"Entity filters: {entity_filters}")
 
-    # Convert dates to strings for SQL comparison
-    start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S') if start_date else None
-    end_date_str = end_date.strftime('%Y-%m-%d %H:%M:%S') if end_date else None
+    # Wenn keine Entity-Filter gesetzt sind, alle anzeigen
+    if entity_filters is None:
+        entity_filters = {
+            "players": True,
+            "unknown": True,
+        }
+        for category in config.NPC_CATEGORIES:
+            entity_filters[f"npc_{category}"] = True
+
+    # Anpassung der Datumsformate für SQL
+    from datetime import datetime, time, timedelta
+    
+    # Startdatum: Wenn angegeben, setze es auf 00:00:00 des Tages
+    if start_date:
+        start_date = datetime.combine(start_date.date(), time.min)
+        start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        start_date_str = None
+    
+    # Enddatum: Wenn angegeben, setze es auf 00:00:00 des NÄCHSTEN Tages
+    if end_date:
+        # Setze auf 00:00:00 des nächsten Tages, um den vollen Tag einzuschließen
+        end_date = datetime.combine(end_date.date(), time.min) + timedelta(days=1)
+        end_date_str = end_date.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        end_date_str = None
+
+    # Debug-Ausgabe der angepassten Datumsfilter
+    print(f"Adjusted date filters - Start: {start_date_str}, End: {end_date_str}")
 
     # Add date filters to SQL queries
     date_filter = ""
     date_params = []
+    
+    # Standardfilter für Datum
     if start_date_str:
         date_filter += " AND timestamp >= ?"
         date_params.append(start_date_str)
     if end_date_str:
-        date_filter += " AND timestamp <= ?"
+        date_filter += " AND timestamp < ?"  # Wichtig: Verwende "<" statt "<=" da end_date jetzt auf den nächsten Tag zeigt
         date_params.append(end_date_str)
 
     # Gesamtkills (ohne Selbstmorde)
@@ -128,75 +184,103 @@ def get_stats(start_date=None, end_date=None):
         "npc_uncategorized": 0, "unknown": 0
     }
 
+    # Filtere und zähle Kills basierend auf den Entity-Filtern
     for (victim,) in kills_detail:
         cleaned = npc_handler.clean_npc_name(victim)
         # Tiere und andere NPC-Typen erkennen
         if cleaned.startswith(("vlk_", "kopion_", "quasigrazer_")):
-            kill_counts["npc_animal"] += 1
+            category = "npc_animal"
+            if entity_filters.get(category, True):
+                kill_counts[category] += 1
         elif cleaned.startswith("pu_"):
             cat = npc_dict.get(cleaned, "uncategorized")
-            key = f"npc_{cat}"
-            kill_counts[key] = kill_counts.get(key, 0) + 1
+            category = f"npc_{cat}"
+            if entity_filters.get(category, True):
+                kill_counts[category] = kill_counts.get(category, 0) + 1
         else:
-            kill_counts["players"] += 1
+            if entity_filters.get("players", True):
+                kill_counts["players"] += 1
 
+    # Filtere und zähle Deaths basierend auf den Entity-Filtern
     for (killer,) in deaths_detail:
         cleaned = npc_handler.clean_npc_name(killer)
         if cleaned.lower() == "unknown":
-            death_counts["unknown"] = death_counts.get("unknown", 0) + 1
+            if entity_filters.get("unknown", True):
+                death_counts["unknown"] = death_counts.get("unknown", 0) + 1
         # Tiere und andere NPC-Typen erkennen
         elif cleaned.startswith(("vlk_", "kopion_", "quasigrazer_")):
-            death_counts["npc_animal"] += 1
+            category = "npc_animal"
+            if entity_filters.get(category, True):
+                death_counts[category] += 1
         elif cleaned.startswith("pu_"):
             cat = npc_dict.get(cleaned, "uncategorized")
-            key = f"npc_{cat}"
-            death_counts[key] = death_counts.get(key, 0) + 1
+            category = f"npc_{cat}"
+            if entity_filters.get(category, True):
+                death_counts[category] = death_counts.get(category, 0) + 1
         else:
-            death_counts["players"] += 1
+            # Wenn es nicht als NPC identifiziert wurde, betrachten wir es als Spieler
+            if entity_filters.get("players", True):
+                death_counts["players"] += 1
+
+    # Berechne gefilterte Totalsummen für die Anzeige
+    filtered_kills = sum(count for category, count in kill_counts.items() if entity_filters.get(category, True))
+    filtered_deaths = sum(count for category, count in death_counts.items() 
+                         if entity_filters.get(category, True) and category != "unknown")
+    
+    # K/D-Ratio mit gefilterten Werten
+    filtered_kd_ratio = filtered_kills / filtered_deaths if filtered_deaths > 0 else float('inf')
 
     stats_text = (
-        f"Total Kills: {kills_by_me}\n"
-        f"Total Deaths (excl. suicides): {deaths_by_others}\n"
-        f"K/D Ratio (excl. suicides): {kd_ratio:.2f}\n\n"
+        f"Total Kills (filtered): {filtered_kills}\n"
+        f"Total Deaths (excl. suicides, filtered): {filtered_deaths}\n"
+        f"K/D Ratio (filtered): {filtered_kd_ratio:.2f}\n\n"
         f"Kills Breakdown:\n"
-        f"  Player Kills: {kill_counts['players']}\n"
-        f"  NPC Pilot Kills: {kill_counts.get('npc_pilot', 0)}\n"
-        f"  NPC Ground Kills: {kill_counts.get('npc_ground', 0)}\n"
-        f"  NPC Pirate Kills: {kill_counts.get('npc_pirate', 0)}\n"
-        f"  NPC Animal Kills: {kill_counts.get('npc_animal', 0)}\n"
-        f"  NPC Civilian Kills: {kill_counts.get('npc_civilian', 0)}\n"
-        f"  NPC Worker Kills: {kill_counts.get('npc_worker', 0)}\n"
-        f"  NPC Law Enforcement Kills: {kill_counts.get('npc_lawenforcement', 0)}\n"
-        f"  NPC Gunner Kills: {kill_counts.get('npc_gunner', 0)}\n"
-        f"  NPC Technical Kills: {kill_counts.get('npc_technical', 0)}\n"
-        f"  NPC Test Kills: {kill_counts.get('npc_test', 0)}\n"
-        f"  NPC Uncategorized: {kill_counts.get('npc_uncategorized', 0)}\n\n"
-        f"Deaths Breakdown:\n"
-        f"  Player Deaths: {death_counts['players']}\n"
-        f"  Unknown Deaths: {death_counts.get('unknown', 0)}\n"
-        f"  Suicides: {suicides}\n"
-        f"  NPC Pilot Deaths: {death_counts.get('npc_pilot', 0)}\n"
-        f"  NPC Ground Deaths: {death_counts.get('npc_ground', 0)}\n"
-        f"  NPC Pirate Deaths: {death_counts.get('npc_pirate', 0)}\n"
-        f"  NPC Animal Deaths: {death_counts.get('npc_animal', 0)}\n"
-        f"  NPC Civilian Deaths: {death_counts.get('npc_civilian', 0)}\n"
-        f"  NPC Worker Deaths: {death_counts.get('npc_worker', 0)}\n"
-        f"  NPC Law Enforcement Deaths: {death_counts.get('npc_lawenforcement', 0)}\n"
-        f"  NPC Gunner Deaths: {death_counts.get('npc_gunner', 0)}\n"
-        f"  NPC Technical Deaths: {death_counts.get('npc_technical', 0)}\n"
-        f"  NPC Test Deaths: {death_counts.get('npc_test', 0)}\n"
-        f"  NPC Uncategorized: {death_counts.get('npc_uncategorized', 0)}\n"
     )
+    
+    # Füge nur die Kategorien hinzu, die im Filter aktiviert sind
+    if entity_filters.get("players", True):
+        stats_text += f"  Player Kills: {kill_counts['players']}\n"
+    
+    # Alle NPC-Kategorien
+    for category in config.NPC_CATEGORIES:
+        key = f"npc_{category}"
+        if entity_filters.get(key, True):
+            stats_text += f"  NPC {category.capitalize()} Kills: {kill_counts.get(key, 0)}\n"
+    
+    stats_text += "\nDeaths Breakdown:\n"
+    
+    # Spieler-Deaths
+    if entity_filters.get("players", True):
+        stats_text += f"  Player Deaths: {death_counts['players']}\n"
+    
+    # Unknown Deaths
+    if entity_filters.get("unknown", True):
+        stats_text += f"  Unknown Deaths: {death_counts.get('unknown', 0)}\n"
+    
+    # Selbstmorde immer anzeigen
+    stats_text += f"  Suicides: {suicides}\n"
+    
+    # Alle NPC-Kategorien für Deaths
+    for category in config.NPC_CATEGORIES:
+        key = f"npc_{category}"
+        if entity_filters.get(key, True):
+            stats_text += f"  NPC {category.capitalize()} Deaths: {death_counts.get(key, 0)}\n"
 
-    return stats_text, get_recent_kill_events(start_date, end_date)
+    return stats_text, get_recent_kill_events(start_date, end_date, entity_filters)
 
-def get_recent_kill_events(start_date=None, end_date=None):
+def get_recent_kill_events(start_date=None, end_date=None, entity_filters=None):
     """
     Formatiert die letzten 100 Kill-Events:
       - Es werden nur Events zurückgegeben, bei denen der Spieler entweder als Killer oder Opfer auftritt,
       - Selbstmorde werden ausgeschlossen,
       - Die Ergebnisse werden anhand des Timestamps (absteigend: neueste zuerst) sortiert,
       - Namen werden von anhängenden Zahlen befreit.
+      
+    Args:
+        start_date (datetime, optional): Startdatum für die Filterung
+        end_date (datetime, optional): Enddatum für die Filterung
+        entity_filters (dict, optional): Filter für Entitätstypen (players, npcs, etc.)
+            Format: {'players': True, 'npc_pilot': False, ...}
     """
     player_lower = config.CURRENT_PLAYER_NAME.lower()
     start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S') if start_date else None
@@ -222,13 +306,76 @@ def get_recent_kill_events(start_date=None, end_date=None):
           AND NOT (LOWER(killer)=? AND LOWER(killed_player)=?)
           {date_filter}
         ORDER BY timestamp DESC
-        LIMIT 100
+        LIMIT 1000
     """, tuple(all_params))
 
     recent_text = ""
+    
+    # Debug-Ausgabe
+    print(f"[INFO] Recent Kill Events: {len(recent_res)} Einträge gefunden")
+    
+    # NPC-Kategorien für die Filterung laden
+    npc_dict = npc_handler.load_all_npc_categories()
+    
+    # Wenn keine Entity-Filter gesetzt sind, alle anzeigen
+    if entity_filters is None:
+        entity_filters = {
+            "players": True,
+            "unknown": True,
+        }
+        for category in config.NPC_CATEGORIES:
+            entity_filters[f"npc_{category}"] = True
+    
+    events_shown = 0
+    
     for ev in recent_res:
         ts, killed_p, killer, zone, weapon, dmg_class, dmg_type = ev
+        
+        # Kategorie des Killers und Opfers bestimmen
+        killer_category = "unknown"
+        victim_category = "unknown"
+        
+        # Killer-Kategorie bestimmen
+        cleaned_killer = npc_handler.clean_npc_name(killer)
+        if cleaned_killer.lower() == player_lower.lower():
+            killer_category = "players"  # Der Spieler selbst
+        elif cleaned_killer.lower() == "unknown":
+            killer_category = "unknown"
+        elif cleaned_killer.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            killer_category = "npc_animal"
+        elif cleaned_killer.startswith("pu_"):
+            cat = npc_dict.get(cleaned_killer, "uncategorized")
+            killer_category = f"npc_{cat}"
+        else:
+            killer_category = "players"  # Andere Spieler
+            
+        # Opfer-Kategorie bestimmen
+        cleaned_victim = npc_handler.clean_npc_name(killed_p)
+        if cleaned_victim.lower() == player_lower.lower():
+            victim_category = "players"  # Der Spieler selbst
+        elif cleaned_victim.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            victim_category = "npc_animal"
+        elif cleaned_victim.startswith("pu_"):
+            cat = npc_dict.get(cleaned_victim, "uncategorized")
+            victim_category = f"npc_{cat}"
+        else:
+            victim_category = "players"  # Andere Spieler
 
+        # Debug-Ausgabe
+        print(f"Killer: {killer} (Kategorie: {killer_category}), Victim: {killed_p} (Kategorie: {victim_category})")
+        
+        # Überprüfen, ob dieses Event angezeigt werden soll basierend auf den Filtern
+        # Spieler ist Opfer: Zeige, wenn Killer-Kategorie aktiviert ist
+        # Spieler ist Killer: Zeige, wenn Opfer-Kategorie aktiviert ist
+        show_event = False
+        if cleaned_victim.lower() == player_lower.lower():
+            show_event = entity_filters.get(killer_category, True)
+        elif cleaned_killer.lower() == player_lower.lower():
+            show_event = entity_filters.get(victim_category, True)
+        
+        if not show_event:
+            continue
+            
         # Namen bereinigen
         killed_p = clean_id(killed_p)
         weapon = clean_id(weapon)
@@ -244,29 +391,69 @@ def get_recent_kill_events(start_date=None, end_date=None):
             f"Zone: {zone}\n"
             "------------------------------------\n"
         )
+        
+        events_shown += 1
+        if events_shown >= 100:  # Begrenze auf 100 gefilterte Einträge
+            break
+    
+    # Debug-Ausgabe
+    print(f"[INFO] Recent Kill Events angezeigt: {events_shown}")
+    
     return recent_text
 
-def get_leaderboards(start_date=None, end_date=None):
+def get_leaderboards(start_date=None, end_date=None, entity_filters=None):
     """
     Gibt zwei Listen zurück (kill_leaderboard, death_leaderboard):
-      - Kill Leaderboard: Top 10 Spieler, die der Benutzer getötet hat (ohne NPCs und Selbstmorde).
-      - Death Leaderboard: Top 10 Spieler, die den Benutzer getötet haben (ohne NPCs und Selbstmorde).
+      - Kill Leaderboard: Spieler und NPCs, die der Benutzer getötet hat (basierend auf Filtern).
+      - Death Leaderboard: Spieler und NPCs, die den Benutzer getötet haben (basierend auf Filtern).
     
     Args:
         start_date: Optional[datetime] - Filtere Ereignisse nach diesem Datum
         end_date: Optional[datetime] - Filtere Ereignisse vor diesem Datum
+        entity_filters: Optional[dict] - Filter für Entitätstypen 
+            Format: {'players': True, 'npc_pilot': False, ...}
     """
     if not config.CURRENT_PLAYER_NAME:
         return [], []
 
     # Stelle sicher, dass alle vlk_, kopion_, quasigrazer_ und pu_-NPCs kategorisiert sind
     categorize_missing_npcs()
-
+    
+    # Initialisiere leere Ergebnismengen
+    kill_data = []
+    death_data = []
+    
+    # Standardfilter, wenn keine angegeben sind
+    if entity_filters is None:
+        entity_filters = {
+            "players": True,
+            "unknown": True,
+        }
+        for category in config.NPC_CATEGORIES:
+            entity_filters[f"npc_{category}"] = True
+    
     player_lower = config.CURRENT_PLAYER_NAME.lower()
     
-    # Wandle Datumsangaben in Strings für SQL-Vergleiche um
-    start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S') if start_date else None
-    end_date_str = end_date.strftime('%Y-%m-%d %H:%M:%S') if end_date else None
+    # Anpassung der Datumsformate für SQL
+    from datetime import datetime, time, timedelta
+    
+    # Startdatum: Wenn angegeben, setze es auf 00:00:00 des Tages
+    if start_date:
+        start_date = datetime.combine(start_date.date(), time.min)
+        start_date_str = start_date.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        start_date_str = None
+    
+    # Enddatum: Wenn angegeben, setze es auf 00:00:00 des NÄCHSTEN Tages
+    if end_date:
+        # Setze auf 00:00:00 des nächsten Tages, um den vollen Tag einzuschließen
+        end_date = datetime.combine(end_date.date(), time.min) + timedelta(days=1)
+        end_date_str = end_date.strftime('%Y-%m-%d %H:%M:%S')
+    else:
+        end_date_str = None
+    
+    # Debug-Ausgabe der angepassten Datumsfilter
+    print(f"Leaderboards - Adjusted date filters - Start: {start_date_str}, End: {end_date_str}")
 
     # Füge Datumsfilter hinzu
     date_filter = ""
@@ -275,50 +462,143 @@ def get_leaderboards(start_date=None, end_date=None):
         date_filter += " AND timestamp >= ?"
         date_params.append(start_date_str)
     if end_date_str:
-        date_filter += " AND timestamp <= ?"
+        date_filter += " AND timestamp < ?"  # Wichtig: Verwende "<" statt "<=" da end_date jetzt auf den nächsten Tag zeigt
         date_params.append(end_date_str)
 
-    # Vereinfachte Kill-Leaderboard-Abfrage
+    # Lade alle Kills ohne Filterung
     kill_params = [player_lower, player_lower] + date_params
-    kill_data = database.fetch_query(f"""
+    all_kills = database.fetch_query(f"""
         SELECT killed_player, COUNT(*) as cnt
         FROM kills
         WHERE LOWER(killer) = ?
           AND LOWER(killed_player) <> ?
-          AND NOT (
-              LOWER(killed_player) LIKE 'vlk_%' 
-              OR LOWER(killed_player) LIKE 'pu_%'
-              OR LOWER(killed_player) LIKE 'kopion_%'
-              OR LOWER(killed_player) LIKE 'quasigrazer_%'
-          )
           {date_filter}
         GROUP BY LOWER(killed_player)
         ORDER BY cnt DESC
-        LIMIT 10
     """, tuple(kill_params))
 
-    # Vereinfachte Death-Leaderboard-Abfrage
-    death_params = [player_lower, player_lower, 'unknown'] + date_params
-    death_data = database.fetch_query(f"""
+    # Lade alle Deaths ohne Filterung
+    death_params = [player_lower] + date_params
+    all_deaths = database.fetch_query(f"""
         SELECT killer, COUNT(*) as cnt
         FROM kills
         WHERE LOWER(killed_player) = ?
-          AND LOWER(killer) <> ?
-          AND LOWER(killer) <> ?
-          AND NOT (
-              LOWER(killer) LIKE 'vlk_%'
-              OR LOWER(killer) LIKE 'pu_%'
-              OR LOWER(killer) LIKE 'kopion_%'
-              OR LOWER(killer) LIKE 'quasigrazer_%'
-          )
           {date_filter}
         GROUP BY LOWER(killer)
         ORDER BY cnt DESC
-        LIMIT 10
     """, tuple(death_params))
 
+    # NPC-Kategorien für die Filterung laden
+    npc_dict = npc_handler.load_all_npc_categories()
+    
+    # Dictionary für die Zusammenfassung von NPCs mit verschiedenen IDs aber gleichem Basisnamen
+    kill_summary = {}
+    death_summary = {}
+    
+    # Kill-Leaderboard filtern und IDs bei NPCs entfernen
+    for name, count in all_kills:
+        # Entferne die ID am Ende des Namens (bei bestimmten NPCs)
+        clean_name = name
+        
+        # Entferne ID-Anhänge sowohl für PU_* als auch für vlk_*, kopion_*, quasigrazer_* NPCs
+        import re
+        match = re.search(r'(.+?)_\d+$', name)
+        if match:
+            clean_name = match.group(1)
+            
+        # Bereinigter Name für die Kategorisierung
+        cleaned = npc_handler.clean_npc_name(name)
+        
+        # Spezieller Check für NPC_Archetypes - diese NIEMALS als Spieler zeigen
+        if "npc_archetypes" in cleaned.lower():
+            # Auto-Kategorisierung durchführen
+            category = npc_handler.auto_categorize_npc(cleaned)
+            npc_category = f"npc_{category}"
+            if entity_filters.get(npc_category, True):
+                # Füge zum Summary-Dict hinzu
+                kill_summary[clean_name] = kill_summary.get(clean_name, 0) + count
+            continue  # Skip weitere Checks
+        
+        # Entity-Kategorie bestimmen und entsprechend filtern
+        elif cleaned.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            if entity_filters.get("npc_animal", True):
+                # Füge zum Summary-Dict hinzu
+                kill_summary[clean_name] = kill_summary.get(clean_name, 0) + count
+        elif cleaned.startswith("pu_"):
+            cat = npc_dict.get(cleaned, "uncategorized")
+            if entity_filters.get(f"npc_{cat}", True):
+                # Füge zum Summary-Dict hinzu
+                kill_summary[clean_name] = kill_summary.get(clean_name, 0) + count
+        else:
+            if entity_filters.get("players", True):
+                # Spielernamen hinzufügen (keine Zusammenfassung nötig)
+                kill_summary[clean_name] = kill_summary.get(clean_name, 0) + count
+
+    # Death-Leaderboard filtern und IDs bei NPCs entfernen
+    for name, count in all_deaths:
+        # Entferne die ID am Ende des Namens (bei bestimmten NPCs)
+        clean_name = name
+        
+        # Entferne ID-Anhänge sowohl für PU_* als auch für vlk_*, kopion_*, quasigrazer_* NPCs
+        import re
+        match = re.search(r'(.+?)_\d+$', name)
+        if match:
+            clean_name = match.group(1)
+        
+        cleaned = npc_handler.clean_npc_name(name)
+        
+        # Spezieller Check für NPC_Archetypes - diese NIEMALS als Spieler zeigen
+        if "npc_archetypes" in cleaned.lower():
+            # Auto-Kategorisierung durchführen
+            category = npc_handler.auto_categorize_npc(cleaned)
+            npc_category = f"npc_{category}"
+            if entity_filters.get(npc_category, True):
+                death_summary[clean_name] = death_summary.get(clean_name, 0) + count
+            continue  # Skip weitere Checks
+        
+        # Spezieller Check für Hazard_dungeon NPCs - immer als NPC betrachten
+        elif "hazard" in cleaned.lower() and "dungeon" in cleaned.lower():
+            category = npc_handler.auto_categorize_npc(cleaned)
+            npc_category = f"npc_{category}"
+            if entity_filters.get(npc_category, True):
+                death_summary[clean_name] = death_summary.get(clean_name, 0) + count
+            continue  # Skip weitere Checks
+        
+        # Spezieller Fall für Unknown-Entities
+        elif cleaned.lower() == "unknown":
+            if entity_filters.get("unknown", True):
+                death_summary[clean_name] = death_summary.get(clean_name, 0) + count
+        
+        # Spieler-Selbstmorde überspringen
+        elif cleaned.lower() == player_lower:
+            # Selbstmorde nicht anzeigen
+            continue
+            
+        # NPCs mit klassifizierbaren Präfixen
+        elif cleaned.startswith(("vlk_", "kopion_", "quasigrazer_")):
+            if entity_filters.get("npc_animal", True):
+                death_summary[clean_name] = death_summary.get(clean_name, 0) + count
+                
+        elif cleaned.startswith("pu_"):
+            cat = npc_dict.get(cleaned, "uncategorized")
+            if entity_filters.get(f"npc_{cat}", True):
+                death_summary[clean_name] = death_summary.get(clean_name, 0) + count
+                
+        # WICHTIG: Alle anderen Einträge werden als Spieler betrachtet
+        else:
+            if entity_filters.get("players", True):
+                death_summary[clean_name] = death_summary.get(clean_name, 0) + count
+
+    # Konvertiere die Zusammenfassungs-Dictionaries zurück in Listen von Tupeln
+    kill_data = [(name, count) for name, count in kill_summary.items()]
+    death_data = [(name, count) for name, count in death_summary.items()]
+    
+    # Sortiere die gefilterten Daten und beschränke auf Top 10
+    kill_data.sort(key=lambda x: x[1], reverse=True)
+    death_data.sort(key=lambda x: x[1], reverse=True)
+    
     # Debug-Ausgabe
     print(f"[INFO] Kill-Leaderboard: {len(kill_data)} Einträge gefunden")
     print(f"[INFO] Death-Leaderboard: {len(death_data)} Einträge gefunden")
 
-    return kill_data or [], death_data or []
+    return kill_data[:10], death_data[:10]

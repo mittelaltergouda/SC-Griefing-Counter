@@ -11,12 +11,12 @@ class Fonts:
     DEFAULT_SIZE = 10
     
 class WindowSettings:
-    DEFAULT_SIZE = "1200x600"  # Größere Standardgröße für bessere Darstellung aller Elemente
+    DEFAULT_SIZE = "1200x800"  # Größere Standardgröße für bessere Darstellung aller Elemente
     MIN_WIDTH = 800
     MIN_HEIGHT = 600
 
 class RefreshSettings:
-    DEFAULT_INTERVAL = 10
+    DEFAULT_INTERVAL = 30  # Geändert von 10 auf 30 Sekunden
     MIN_INTERVAL = 1
     MAX_INTERVAL = 10000
 
