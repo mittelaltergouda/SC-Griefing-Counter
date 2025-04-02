@@ -6,6 +6,7 @@ import time
 import os
 import webbrowser
 import logging
+import update_checker  # Neues Modul für Updates
 from logging.handlers import RotatingFileHandler
 from dataclasses import dataclass
 from typing import List, Tuple
@@ -17,6 +18,9 @@ from watchdog_handler import start_watchdog
 from datetime import datetime
 from ui_constants import Colors, Fonts, WindowSettings, RefreshSettings
 import logger
+
+# Aktuelle Version der Anwendung - wird bei jedem Release aktualisiert
+APP_VERSION = "0.7.0"
 
 # Um den Kalender zu benutzen, benötigst du das Paket tkcalendar
 # Installiere es mit: pip install tkcalendar
@@ -111,10 +115,11 @@ class GriefingCounterApp(tk.Tk):
     - Priorisierte Verarbeitung: Zuerst wird die Live‑Log-Datei verarbeitet (sodass neue Events sofort angezeigt werden),
       Backup‑Logs werden asynchron in einem separaten Thread eingelesen.
     - Beim manuellen Refresh wird die Scrollposition beibehalten.
+    - Automatische Prüfung auf Updates und Download neuer Versionen
     """
     def __init__(self):
         super().__init__()
-        self.title("Griefing Counter")
+        self.title(f"Star Citizen Griefing Counter v{APP_VERSION}")
         self.geometry(WindowSettings.DEFAULT_SIZE)
         self.minsize(WindowSettings.MIN_WIDTH, WindowSettings.MIN_HEIGHT)
         
@@ -135,6 +140,9 @@ class GriefingCounterApp(tk.Tk):
         
         # Automatisch den Apply Button klicken beim Start der Anwendung
         self.after(1000, self.on_apply_player_name)
+        
+        # Update-Check starten (nach 5 Sekunden)
+        self.after(5000, self.check_for_updates)
 
     def setup_ui(self):
         """Separate UI initialization"""
@@ -726,6 +734,34 @@ class GriefingCounterApp(tk.Tk):
             
         # Nach dem Ändern aller Filter die Daten aktualisieren
         self.apply_entity_filter()
+
+    def check_for_updates(self):
+        """Prüft auf Updates und zeigt ggf. einen Dialog an"""
+        try:
+            self.logger.info(f"Prüfe auf Updates (aktuelle Version: {APP_VERSION})")
+            update_available, latest_version, changelog = update_checker.check_for_updates(APP_VERSION)
+            
+            if update_available:
+                from tkinter import messagebox
+                result = messagebox.askyesno(
+                    "Update verfügbar",
+                    f"Version {latest_version} ist verfügbar!\n\n{changelog}\n\nMöchten Sie jetzt aktualisieren?"
+                )
+                
+                if result:
+                    self.logger.info(f"Starte Update auf Version {latest_version}")
+                    update_checker.start_updater()
+                else:
+                    self.logger.info("Update wurde abgelehnt")
+            else:
+                self.logger.debug(f"Keine neue Version verfügbar. Aktuell: {APP_VERSION}")
+                
+            # Periodischer Update-Check (alle 24 Stunden)
+            self.after(24 * 60 * 60 * 1000, self.check_for_updates)
+        except Exception as e:
+            self.logger.error(f"Fehler beim Update-Check: {str(e)}")
+            # Trotz Fehler wird der nächste Check für später geplant
+            self.after(24 * 60 * 60 * 1000, self.check_for_updates)
 
 def start_gui():
     """Entry point für die Tkinter-App."""

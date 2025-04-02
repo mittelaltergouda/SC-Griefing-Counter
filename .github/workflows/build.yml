@@ -1,0 +1,119 @@
+name: Build und Release Star Citizen Griefing Counter
+
+on:
+  push:
+    tags:
+      - 'v*' # Wird ausgelöst, wenn ein Tag mit 'v' beginnt (z.B. v1.0.0)
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Vollständiger Git-Verlauf für korrekte Versionierung
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install nuitka pyarmor requests packaging
+          pip install watchdog tkcalendar
+      
+      - name: Extract Version from Tag
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref }}".Replace('refs/tags/v', '')
+          echo "VERSION=$version" | Out-File -FilePath $Env:GITHUB_ENV -Append
+      
+      - name: Create version.json
+        shell: pwsh
+        run: |
+          $versionJson = @{
+            latest_version = "${{ env.VERSION }}"
+            download_url = "https://${{ github.repository_owner }}.github.io/SC-Griefing-Counter-Releases/griefing_counter.exe"
+            release_date = (Get-Date -Format "yyyy-MM-dd")
+            changelog = "Neue Version ${{ env.VERSION }} verfügbar. Siehe GitHub für Details."
+          } | ConvertTo-Json
+          $versionJson | Out-File -FilePath version.json -Encoding utf8
+      
+      - name: Apply PyArmor to Main Script
+        run: |
+          mkdir -p dist/obfuscated
+          pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+          xcopy /E /Y *.py dist\obfuscated\
+          del dist\obfuscated\griefing_counter_tk.py
+          copy dist\obfuscated\pytransform\__init__.py dist\obfuscated\
+          rmdir /S /Q dist\obfuscated\pytransform
+      
+      - name: Compile Main Program with Nuitka
+        run: |
+          python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py
+          Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
+          Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+      
+      - name: Compile Updater with Nuitka
+        run: |
+          python -m nuitka --standalone --mingw64 --windows-disable-console --output-dir=dist gc-updater.py
+      
+      - name: Generate SHA256 Hash
+        shell: pwsh
+        run: |
+          $exePath = "dist/griefing_counter/griefing_counter.exe"
+          $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
+          $hash | Out-File -FilePath "dist/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
+      
+      - name: Copy Additional Files to Distribution
+        run: |
+          copy README.md dist\griefing_counter\
+          copy LICENSE.txt dist\griefing_counter\
+          copy CONTRIBUTING.md dist\griefing_counter\
+          copy version.json dist\griefing_counter\
+          copy dist\gc-updater.dist\gc-updater.exe dist\griefing_counter\
+      
+      - name: Create Release ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/griefing_counter/* -DestinationPath SC-Griefing-Counter-${{ env.VERSION }}.zip
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            SC-Griefing-Counter-${{ env.VERSION }}.zip
+            dist/griefing_counter.exe.sha256
+            version.json
+          name: "SC Griefing Counter v${{ env.VERSION }}"
+          body: "Star Citizen Griefing Counter v${{ env.VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup GitHub Pages Repository
+        shell: pwsh
+        run: |
+          # Klone das GitHub Pages Repository
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git clone https://${{ github.actor }}:${{ secrets.GH_PAGES_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git pages-repo
+          
+          # Kopiere die benötigten Dateien
+          Copy-Item -Path "dist/griefing_counter/griefing_counter.exe" -Destination "pages-repo/"
+          Copy-Item -Path "dist/griefing_counter.exe.sha256" -Destination "pages-repo/griefing_counter.exe.sha256"
+          Copy-Item -Path "version.json" -Destination "pages-repo/"
+          Copy-Item -Path "README.md" -Destination "pages-repo/"
+          Copy-Item -Path "LICENSE.txt" -Destination "pages-repo/"
+          Copy-Item -Path "CONTRIBUTING.md" -Destination "pages-repo/"
+          Copy-Item -Path "dist/griefing_counter/gc-updater.exe" -Destination "pages-repo/"
+          
+          # Commit und Push
+          cd pages-repo
+          git add .
+          git commit -m "Update auf Version ${{ env.VERSION }}"
+          git push

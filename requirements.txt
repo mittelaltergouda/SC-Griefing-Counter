@@ -1,0 +1,9 @@
+# Star Citizen Griefing Counter - Abhängigkeiten
+watchdog>=3.0.0
+tkcalendar>=1.6.1
+packaging>=23.0
+requests>=2.31.0
+
+# Build-Abhängigkeiten
+nuitka>=1.5.0
+pyarmor>=7.7.0
