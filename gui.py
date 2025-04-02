@@ -20,7 +20,7 @@ from ui_constants import Colors, Fonts, WindowSettings, RefreshSettings
 import logger
 
 # Aktuelle Version der Anwendung - wird bei jedem Release aktualisiert
-APP_VERSION = "0.6.9"
+APP_VERSION = "0.7.0"
 
 # Um den Kalender zu benutzen, benötigst du das Paket tkcalendar
 # Installiere es mit: pip install tkcalendar
