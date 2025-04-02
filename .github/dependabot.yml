@@ -1,0 +1,29 @@
+# Dependabot Konfiguration für SC-Griefing-Counter
+version: 2
+updates:
+  # Updates für pip (Python-Pakete)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    # Gruppierung ähnlicher Updates
+    groups:
+      python-packages:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "nuitka"
+          - "pyarmor"
+    # Ignoriere bestimmte Updates (bei Bedarf anpassen)
+    ignore:
+      # Beispiel: Major-Updates von watchdog ignorieren
+      - dependency-name: "watchdog"
+        update-types: ["version-update:semver-major"]
+
+  # Updates für GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 3
