@@ -15,6 +15,14 @@ jobs:
         with:
           fetch-depth: 0  # Vollständiger Git-Verlauf für korrekte Versionierung
       
+      # Debug-Schritt hinzufügen
+      - name: Debug Info
+        run: |
+          echo "GitHub Ref: ${{ github.ref }}"
+          echo "Repository Owner: ${{ github.repository_owner }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "GH_PAGES_TOKEN verfügbar: ${{ secrets.GH_PAGES_TOKEN != '' }}"
+      
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
@@ -31,7 +39,12 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ github.ref }}".Replace('refs/tags/v', '')
-          echo "VERSION=$version" | Out-File -FilePath $Env:GITHUB_ENV -Append
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "Extrahierte Version: $version"
+      
+      # Debug-Schritt nach der Versionserstellung
+      - name: Debug Version
+        run: echo "VERSION nach Extraktion: ${{ env.VERSION }}"
       
       - name: Create version.json
         shell: pwsh
@@ -43,6 +56,9 @@ jobs:
             changelog = "Neue Version ${{ env.VERSION }} verfügbar. Siehe GitHub für Details."
           } | ConvertTo-Json
           $versionJson | Out-File -FilePath version.json -Encoding utf8
+          
+          # Debug-Ausgabe der version.json
+          Get-Content version.json
       
       - name: Apply PyArmor to Main Script
         run: |
@@ -95,13 +111,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      # Debug-Schritt vor dem GitHub Pages Setup
+      - name: Debug GH Pages Setup
+        run: |
+          echo "GitHub Actor: ${{ github.actor }}"
+          echo "Repository Owner: ${{ github.repository_owner }}"
+          echo "GH_PAGES_TOKEN verfügbar: ${{ secrets.GH_PAGES_TOKEN != '' }}"
+      
       - name: Setup GitHub Pages Repository
         shell: pwsh
         run: |
           # Klone das GitHub Pages Repository
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          git clone https://${{ github.actor }}:${{ secrets.GH_PAGES_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git pages-repo
+          
+          # Alternative Authentifizierungsmethode versuchen
+          echo "Versuche, das Repository zu klonen..."
+          git clone https://x-access-token:${{ secrets.GH_PAGES_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git pages-repo
           
           # Kopiere die benötigten Dateien
           Copy-Item -Path "dist/griefing_counter/griefing_counter.exe" -Destination "pages-repo/"
