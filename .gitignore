@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 *.pyo
+*.py[cod]
+*$py.class
 
 # Log-Dateien
 Logs/
@@ -13,14 +15,23 @@ config.txt
 # Virtuelle Umgebungen
 venv/
 .env/
+ENV/
+env/
 
 # IDE-spezifische Dateien
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # Betriebssystem-spezifische Dateien
 .DS_Store
 Thumbs.db
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 
 # Temporäre Dateien
 *.tmp
@@ -31,3 +42,25 @@ Thumbs.db
 databases/
 *.db
 *.sqlite3
+
+# Build-Verzeichnisse und kompilierte Dateien
+dist/
+build/
+*.egg-info/
+
+# Nuitka und PyArmor Output
+*.build/
+*.dist/
+*.pyd
+*.so
+*.dll
+*.exe
+# Die folgende Zeile auskommentieren, wenn Sie EXE-Dateien tracken möchten
+# !gc-updater.exe
+
+# GitHub Actions spezifisch
+.coverage
+htmlcov/
+
+# Projektspezifische Dateien
+# Fügen Sie hier projektspezifische Ausschlüsse hinzu
