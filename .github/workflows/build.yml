@@ -47,23 +47,27 @@ jobs:
           } else {
             $version = "0.7.0"  # Fallback-Version
           }
-          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          # Speichere Version als Output-Variable
+          echo "app_version=$version" >> $env:GITHUB_OUTPUT
+          # Zeige Version im Log
           echo "Extrahierte Version: $version"
           
-      - name: Debug Environment Variables
+      - name: Debug Version Variable
         run: |
-          echo "VERSION: ${{ steps.get_version.outputs.VERSION }}"
+          echo "VERSION: ${{ steps.get_version.outputs.app_version }}"
           echo "GITHUB_REF: ${{ github.ref }}"
       
       - name: Create version.json
+        id: create_version_json
         shell: pwsh
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
+          # Verwende die Version aus dem vorherigen Schritt
+          $versionNum = "${{ steps.get_version.outputs.app_version }}"
           $versionJson = @{
-            latest_version = "$version"
+            latest_version = $versionNum
             download_url = "https://${{ github.repository_owner }}.github.io/SC-Griefing-Counter-Releases/griefing_counter.exe"
             release_date = (Get-Date -Format "yyyy-MM-dd")
-            changelog = "Neue Version $version verfügbar. Siehe GitHub für Details."
+            changelog = "Neue Version $versionNum verfügbar. Siehe GitHub für Details."
           } | ConvertTo-Json
           $versionJson | Out-File -FilePath version.json -Encoding utf8
           Get-Content version.json
@@ -103,33 +107,45 @@ jobs:
           copy dist\gc-updater.dist\gc-updater.exe dist\griefing_counter\
       
       - name: Create Release ZIP
+        id: create_zip
         shell: pwsh
         run: |
-          $version = "${{ steps.get_version.outputs.VERSION }}"
-          Compress-Archive -Path dist/griefing_counter/* -DestinationPath "SC-Griefing-Counter-$version.zip"
+          # Hole die Version aus dem get_version-Schritt
+          $versionNum = "${{ steps.get_version.outputs.app_version }}"
+          # Erstelle den ZIP-Dateinamen
+          $zipFilename = "SC-Griefing-Counter-" + $versionNum + ".zip"
+          # Erstelle die ZIP-Datei
+          Compress-Archive -Path dist/griefing_counter/* -DestinationPath $zipFilename
+          # Speichere den Dateinamen als Output
+          echo "zip_filename=$zipFilename" >> $env:GITHUB_OUTPUT
       
-      # Einfachere Methode, um Release zu erstellen
+      # GitHub Release erstellen
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            SC-Griefing-Counter-${{ steps.get_version.outputs.VERSION }}.zip
+            ${{ steps.create_zip.outputs.zip_filename }}
             dist/griefing_counter.exe.sha256
             version.json
-          name: "SC Griefing Counter v${{ steps.get_version.outputs.VERSION }}"
-          body: "Star Citizen Griefing Counter v${{ steps.get_version.outputs.VERSION }}"
+          name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
+          body: |
+            # Release v${{ steps.get_version.outputs.app_version }}
+            
+            ## Änderungen
+            - Automatisierter Build-Prozess
+            - Updates können direkt in der App installiert werden
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      # Einfacherer Deploy-Prozess mit Pages
+      # GitHub Pages Setup
       - name: Setup Pages
         uses: actions/configure-pages@v3
         
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: 'dist/griefing_counter'
+          path: dist/griefing_counter
       
       - name: Deploy to GitHub Pages
         id: deployment
