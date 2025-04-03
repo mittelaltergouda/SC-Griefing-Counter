@@ -17,25 +17,20 @@ jobs:
     runs-on: windows-latest
     
     steps:
-      # Checkout Code manuell ausführen statt actions/checkout zu verwenden
-      - name: Checkout Code
-        run: |
-          git init
-          git remote add origin https://github.com/${{ github.repository }}.git
-          git fetch --no-tags --prune --progress --depth=1 origin
-          git checkout main
-          
+      # Wir verwenden die checkout-Action, die immer erlaubt ist
+      - uses: actions/checkout@v3
+      
       - name: Debug Info
         run: |
           echo "GitHub Ref: ${{ github.ref }}"
           echo "Repository Owner: ${{ github.repository_owner }}"
           echo "Actor: ${{ github.actor }}"
       
-      # Python manuell einrichten statt actions/setup-python zu verwenden
+      # Wir verwenden setup-python, die immer erlaubt ist
       - name: Set up Python 3.11
-        run: |
-          echo "Verwende das installierte Python auf dem Runner"
-          python --version
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
       
       - name: Install Dependencies
         run: |
@@ -113,77 +108,29 @@ jobs:
           $version = "${{ env.VERSION }}"
           Compress-Archive -Path dist/griefing_counter/* -DestinationPath "SC-Griefing-Counter-$version.zip"
       
-      # GitHub Release manuell erstellen statt softprops/action-gh-release zu verwenden
+      # Einfachere Methode, um Release zu erstellen
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        shell: pwsh
-        run: |
-          $version = "${{ env.VERSION }}"
-          $tag = "${{ github.ref_name }}"
-          $token = "${{ secrets.GITHUB_TOKEN }}"
-          $repoUrl = "https://api.github.com/repos/${{ github.repository }}"
-          
-          # Release erstellen
-          $releaseData = @{
-            tag_name = $tag
-            name = "SC Griefing Counter v$version"
-            body = "Star Citizen Griefing Counter v$version"
-            draft = $false
-            prerelease = $false
-          } | ConvertTo-Json
-          
-          $headers = @{
-            Authorization = "token $token"
-            Accept = "application/vnd.github.v3+json"
-          }
-          
-          # API-Aufruf zum Erstellen des Releases
-          $response = Invoke-RestMethod -Uri "$repoUrl/releases" -Method Post -Headers $headers -Body $releaseData
-          $releaseId = $response.id
-          
-          # Dateien hochladen
-          $filesToUpload = @(
-            @{Path = "SC-Griefing-Counter-$version.zip"; Name = "SC-Griefing-Counter-$version.zip"; ContentType = "application/zip"},
-            @{Path = "dist/griefing_counter.exe.sha256"; Name = "griefing_counter.exe.sha256"; ContentType = "text/plain"},
-            @{Path = "version.json"; Name = "version.json"; ContentType = "application/json"}
-          )
-          
-          foreach ($file in $filesToUpload) {
-            $uploadUrl = "$repoUrl/releases/$releaseId/assets?name=$($file.Name)"
-            Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile $file.Path -ContentType $file.ContentType
-          }
-          
-      - name: Deploy to GitHub Pages Repository
-        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            SC-Griefing-Counter-${{ env.VERSION }}.zip
+            dist/griefing_counter.exe.sha256
+            version.json
+          name: "SC Griefing Counter v${{ env.VERSION }}"
+          body: "Star Citizen Griefing Counter v${{ env.VERSION }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Erstelle einen temporären Ordner für das Releases Repository
-          mkdir -p gh-pages-deploy
-          cd gh-pages-deploy
-          
-          # Kopiere die benötigten Dateien
-          cp -r "../dist/griefing_counter/griefing_counter.exe" .
-          cp -r "../dist/griefing_counter.exe.sha256" .
-          cp -r "../version.json" .
-          cp -r "../README.md" .
-          cp -r "../LICENSE.txt" .
-          cp -r "../CONTRIBUTING.md" .
-          cp -r "../dist/griefing_counter/gc-updater.exe" .
-          
-          # Erstelle einen einfachen Index für GitHub Pages
-          echo "<html><head><title>SC Griefing Counter Downloads</title></head><body>" > index.html
-          echo "<h1>SC Griefing Counter Downloads</h1>" >> index.html
-          echo "<p>Version: ${{ env.VERSION }}</p>" >> index.html
-          echo "<p><a href='griefing_counter.exe'>Download Application</a></p>" >> index.html
-          echo "<p><a href='version.json'>Version Info</a></p>" >> index.html
-          echo "</body></html>" >> index.html
-          
-          # GitHub Pages löschen und neu erstellen
-          rm -rf .git
-          git init
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add .
-          git commit -m "Update auf Version ${{ env.VERSION }}"
-          git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git HEAD:gh-pages
+      
+      # Einfacherer Deploy-Prozess mit Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v3
+        
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: 'dist/griefing_counter'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
