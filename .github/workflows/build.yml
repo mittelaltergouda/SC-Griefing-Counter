@@ -47,18 +47,18 @@ jobs:
           } else {
             $version = "0.7.0"  # Fallback-Version
           }
-          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "Extrahierte Version: $version"
           
       - name: Debug Environment Variables
         run: |
-          echo "VERSION: ${{ env.VERSION }}"
+          echo "VERSION: ${{ steps.get_version.outputs.VERSION }}"
           echo "GITHUB_REF: ${{ github.ref }}"
       
       - name: Create version.json
         shell: pwsh
         run: |
-          $version = "${{ env.VERSION }}"
+          $version = "${{ steps.get_version.outputs.VERSION }}"
           $versionJson = @{
             latest_version = "$version"
             download_url = "https://${{ github.repository_owner }}.github.io/SC-Griefing-Counter-Releases/griefing_counter.exe"
@@ -105,7 +105,7 @@ jobs:
       - name: Create Release ZIP
         shell: pwsh
         run: |
-          $version = "${{ env.VERSION }}"
+          $version = "${{ steps.get_version.outputs.VERSION }}"
           Compress-Archive -Path dist/griefing_counter/* -DestinationPath "SC-Griefing-Counter-$version.zip"
       
       # Einfachere Methode, um Release zu erstellen
@@ -114,11 +114,11 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            SC-Griefing-Counter-${{ env.VERSION }}.zip
+            SC-Griefing-Counter-${{ steps.get_version.outputs.VERSION }}.zip
             dist/griefing_counter.exe.sha256
             version.json
-          name: "SC Griefing Counter v${{ env.VERSION }}"
-          body: "Star Citizen Griefing Counter v${{ env.VERSION }}"
+          name: "SC Griefing Counter v${{ steps.get_version.outputs.VERSION }}"
+          body: "Star Citizen Griefing Counter v${{ steps.get_version.outputs.VERSION }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
