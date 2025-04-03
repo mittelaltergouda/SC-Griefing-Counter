@@ -138,15 +138,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      # GitHub Pages Setup
-      - name: Setup Pages
-        uses: actions/configure-pages@v3
-        
-      - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v2
-        with:
-          path: dist/griefing_counter
+      # Alternative Methode für GitHub Pages, ohne upload-pages-artifact zu verwenden
+      - name: Prepare GitHub Pages Content
+        run: |
+          mkdir -p pages-content
+          copy dist\griefing_counter\griefing_counter.exe pages-content\
+          copy dist\griefing_counter.exe.sha256 pages-content\
+          copy version.json pages-content\
+          copy README.md pages-content\
+          copy LICENSE.txt pages-content\
+          copy CONTRIBUTING.md pages-content\
+          
+          # Erstelle eine einfache index.html
+          echo "<!DOCTYPE html>" > pages-content\index.html
+          echo "<html><head><title>SC Griefing Counter Downloads</title></head><body>" >> pages-content\index.html
+          echo "<h1>SC Griefing Counter Downloads</h1>" >> pages-content\index.html
+          echo "<p>Version: ${{ steps.get_version.outputs.app_version }}</p>" >> pages-content\index.html
+          echo "<p><a href='griefing_counter.exe'>Download Application</a></p>" >> pages-content\index.html
+          echo "<p><a href='version.json'>Version Info</a></p>" >> pages-content\index.html
+          echo "</body></html>" >> pages-content\index.html
       
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v2
+      - name: Deploy to GitHub Pages Repo
+        if: success()
+        run: |
+          cd pages-content
+          git init
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "Update auf Version ${{ steps.get_version.outputs.app_version }}"
+          git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git HEAD:gh-pages
