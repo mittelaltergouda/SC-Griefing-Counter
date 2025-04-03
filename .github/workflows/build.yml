@@ -35,8 +35,9 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install nuitka pyarmor requests packaging
+          pip install nuitka requests packaging
           pip install watchdog tkcalendar
+          pip install pyarmor==6.7.4  # Spezifische Version von PyArmor installieren
       
       - name: Extract Version from Tag
         id: get_version
@@ -74,18 +75,39 @@ jobs:
       
       - name: Apply PyArmor to Main Script
         run: |
+          # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
+          
+          # Führe PyArmor aus (ältere Syntax)
           pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
-          xcopy /E /Y *.py dist\obfuscated\
-          del dist\obfuscated\griefing_counter_tk.py
-          copy dist\obfuscated\pytransform\__init__.py dist\obfuscated\
-          rmdir /S /Q dist\obfuscated\pytransform
+          
+          # Kopiere alle Python-Dateien außer die bereits obfuskierte
+          Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+          
+          # Kopiere die pytransform/__init__.py und lösche das Verzeichnis
+          if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
+            Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
+            Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force
+          }
       
       - name: Compile Main Program with Nuitka
         run: |
           python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py
-          Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
-          Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+          
+          # Stellen Sie sicher, dass die Verzeichnisse existieren, bevor Sie sie umbenennen
+          if (Test-Path "dist/griefing_counter_tk.dist") {
+            Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
+          } else {
+            Write-Error "Das Verzeichnis dist/griefing_counter_tk.dist wurde nicht gefunden!"
+            exit 1
+          }
+          
+          if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
+            Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+          } else {
+            Write-Error "Die Datei dist/griefing_counter/griefing_counter_tk.exe wurde nicht gefunden!"
+            exit 1
+          }
       
       - name: Compile Updater with Nuitka
         run: |
@@ -95,16 +117,37 @@ jobs:
         shell: pwsh
         run: |
           $exePath = "dist/griefing_counter/griefing_counter.exe"
-          $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
-          $hash | Out-File -FilePath "dist/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
+          if (Test-Path $exePath) {
+            $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
+            $hash | Out-File -FilePath "dist/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
+          } else {
+            Write-Error "Die Datei $exePath wurde nicht gefunden!"
+            exit 1
+          }
       
       - name: Copy Additional Files to Distribution
         run: |
-          copy README.md dist\griefing_counter\
-          copy LICENSE.txt dist\griefing_counter\
-          copy CONTRIBUTING.md dist\griefing_counter\
-          copy version.json dist\griefing_counter\
-          copy dist\gc-updater.dist\gc-updater.exe dist\griefing_counter\
+          # Stelle sicher, dass die Zielverzeichnisse existieren
+          if (!(Test-Path "dist/griefing_counter")) {
+            mkdir -p dist/griefing_counter
+          }
+          
+          # Kopiere Dateien mit Fehlerbehandlung
+          $filesToCopy = @("README.md", "LICENSE.txt", "CONTRIBUTING.md", "version.json")
+          foreach ($file in $filesToCopy) {
+            if (Test-Path $file) {
+              Copy-Item $file -Destination "dist/griefing_counter/" -Force
+            } else {
+              Write-Warning "Warnung: Datei $file nicht gefunden, wird übersprungen"
+            }
+          }
+          
+          # Kopiere updater.exe, wenn vorhanden
+          if (Test-Path "dist/gc-updater.dist/gc-updater.exe") {
+            Copy-Item "dist/gc-updater.dist/gc-updater.exe" -Destination "dist/griefing_counter/" -Force
+          } else {
+            Write-Warning "Warnung: gc-updater.exe nicht gefunden"
+          }
       
       - name: Create Release ZIP
         id: create_zip
@@ -114,10 +157,17 @@ jobs:
           $versionNum = "${{ steps.get_version.outputs.app_version }}"
           # Erstelle den ZIP-Dateinamen
           $zipFilename = "SC-Griefing-Counter-" + $versionNum + ".zip"
-          # Erstelle die ZIP-Datei
-          Compress-Archive -Path dist/griefing_counter/* -DestinationPath $zipFilename
-          # Speichere den Dateinamen als Output
-          echo "zip_filename=$zipFilename" >> $env:GITHUB_OUTPUT
+          
+          # Prüfe, ob das Verzeichnis existiert
+          if (Test-Path "dist/griefing_counter") {
+            # Erstelle die ZIP-Datei
+            Compress-Archive -Path dist/griefing_counter/* -DestinationPath $zipFilename -Force
+            # Speichere den Dateinamen als Output
+            echo "zip_filename=$zipFilename" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Error "Das Verzeichnis dist/griefing_counter wurde nicht gefunden!"
+            exit 1
+          }
       
       # GitHub Release erstellen
       - name: Create GitHub Release
@@ -138,25 +188,63 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      # Alternative Methode für GitHub Pages, ohne upload-pages-artifact zu verwenden
+      # Alternative Methode für GitHub Pages
       - name: Prepare GitHub Pages Content
         run: |
           mkdir -p pages-content
-          copy dist\griefing_counter\griefing_counter.exe pages-content\
-          copy dist\griefing_counter.exe.sha256 pages-content\
-          copy version.json pages-content\
-          copy README.md pages-content\
-          copy LICENSE.txt pages-content\
-          copy CONTRIBUTING.md pages-content\
+          
+          # Kopiere Dateien mit Fehlerprüfung
+          $sourceFiles = @{
+            "dist/griefing_counter/griefing_counter.exe" = "pages-content/griefing_counter.exe"
+            "dist/griefing_counter.exe.sha256" = "pages-content/griefing_counter.exe.sha256"
+            "version.json" = "pages-content/version.json"
+            "README.md" = "pages-content/README.md"
+            "LICENSE.txt" = "pages-content/LICENSE.txt"
+            "CONTRIBUTING.md" = "pages-content/CONTRIBUTING.md"
+          }
+          
+          foreach ($source in $sourceFiles.Keys) {
+            if (Test-Path $source) {
+              Copy-Item $source -Destination $sourceFiles[$source] -Force
+              Write-Host "Kopiert: $source nach $($sourceFiles[$source])"
+            } else {
+              Write-Warning "Warnung: $source nicht gefunden, wird übersprungen"
+            }
+          }
           
           # Erstelle eine einfache index.html
-          echo "<!DOCTYPE html>" > pages-content\index.html
-          echo "<html><head><title>SC Griefing Counter Downloads</title></head><body>" >> pages-content\index.html
-          echo "<h1>SC Griefing Counter Downloads</h1>" >> pages-content\index.html
-          echo "<p>Version: ${{ steps.get_version.outputs.app_version }}</p>" >> pages-content\index.html
-          echo "<p><a href='griefing_counter.exe'>Download Application</a></p>" >> pages-content\index.html
-          echo "<p><a href='version.json'>Version Info</a></p>" >> pages-content\index.html
-          echo "</body></html>" >> pages-content\index.html
+          @"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SC Griefing Counter Downloads</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #333; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .download-button { 
+            display: inline-block; 
+            background: #4CAF50; 
+            color: white; 
+            padding: 10px 20px; 
+            margin: 10px 0; 
+            border-radius: 4px; 
+        }
+    </style>
+</head>
+<body>
+    <h1>SC Griefing Counter Downloads</h1>
+    <p>Version: ${{ steps.get_version.outputs.app_version }}</p>
+    <p>Release-Datum: $(Get-Date -Format "yyyy-MM-dd")</p>
+    <p><a href="griefing_counter.exe" class="download-button">Download Application</a></p>
+    <p><a href="version.json">Version Info</a></p>
+    <p><a href="https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases">Alle Releases auf GitHub</a></p>
+</body>
+</html>
+"@ | Out-File -FilePath "pages-content/index.html" -Encoding utf8
       
       - name: Deploy to GitHub Pages Repo
         if: success()
@@ -167,4 +255,12 @@ jobs:
           git config user.email "actions@github.com"
           git add .
           git commit -m "Update auf Version ${{ steps.get_version.outputs.app_version }}"
-          git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git HEAD:gh-pages
+          
+          # Mit Fehlerbehandlung pushen
+          try {
+            git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git HEAD:gh-pages
+            Write-Host "Erfolgreich auf GitHub Pages deployed!"
+          } catch {
+            Write-Error "Fehler beim Pushen zu GitHub Pages: $_"
+            exit 1
+          }
