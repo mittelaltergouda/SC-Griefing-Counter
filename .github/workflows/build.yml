@@ -189,37 +189,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # Alternative Methode für GitHub Pages
-      - name: Prepare GitHub Pages Content
+      - name: Create index.html
+        shell: pwsh
         run: |
-          mkdir -p pages-content
-          
-          # Kopiere Dateien mit Fehlerprüfung
-          $sourceFiles = @{
-            "dist/griefing_counter/griefing_counter.exe" = "pages-content/griefing_counter.exe"
-            "dist/griefing_counter.exe.sha256" = "pages-content/griefing_counter.exe.sha256"
-            "version.json" = "pages-content/version.json"
-            "README.md" = "pages-content/README.md"
-            "LICENSE.txt" = "pages-content/LICENSE.txt"
-            "CONTRIBUTING.md" = "pages-content/CONTRIBUTING.md"
-          }
-          
-          foreach ($source in $sourceFiles.Keys) {
-            if (Test-Path $source) {
-              Copy-Item $source -Destination $sourceFiles[$source] -Force
-              Write-Host "Kopiert: $source nach $($sourceFiles[$source])"
-            } else {
-              Write-Warning "Warnung: $source nicht gefunden, wird übersprungen"
-            }
-          }
-          
-          # Erstelle eine einfache index.html
-          @"
+          $htmlContent = @"
 <!DOCTYPE html>
 <html>
 <head>
     <title>SC Griefing Counter Downloads</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
     <style>
         body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
         h1 { color: #333; }
@@ -238,13 +217,38 @@ jobs:
 <body>
     <h1>SC Griefing Counter Downloads</h1>
     <p>Version: ${{ steps.get_version.outputs.app_version }}</p>
-    <p>Release-Datum: $(Get-Date -Format "yyyy-MM-dd")</p>
-    <p><a href="griefing_counter.exe" class="download-button">Download Application</a></p>
-    <p><a href="version.json">Version Info</a></p>
-    <p><a href="https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases">Alle Releases auf GitHub</a></p>
+    <p>Release-Datum: $(Get-Date -Format 'yyyy-MM-dd')</p>
+    <p><a href='griefing_counter.exe' class='download-button'>Download Application</a></p>
+    <p><a href='version.json'>Version Info</a></p>
+    <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>
 </body>
 </html>
-"@ | Out-File -FilePath "pages-content/index.html" -Encoding utf8
+"@
+          
+          # Erstelle Verzeichnis und speichere HTML-Datei
+          mkdir -p pages-content
+          $htmlContent | Out-File -FilePath "pages-content/index.html" -Encoding utf8
+
+      - name: Prepare GitHub Pages Content
+        run: |
+          # Kopiere Dateien mit Fehlerprüfung
+          $sourceFiles = @{
+            "dist/griefing_counter/griefing_counter.exe" = "pages-content/griefing_counter.exe"
+            "dist/griefing_counter.exe.sha256" = "pages-content/griefing_counter.exe.sha256"
+            "version.json" = "pages-content/version.json"
+            "README.md" = "pages-content/README.md"
+            "LICENSE.txt" = "pages-content/LICENSE.txt"
+            "CONTRIBUTING.md" = "pages-content/CONTRIBUTING.md"
+          }
+          
+          foreach ($source in $sourceFiles.Keys) {
+            if (Test-Path $source) {
+              Copy-Item $source -Destination $sourceFiles[$source] -Force
+              Write-Host "Kopiert: $source nach $($sourceFiles[$source])"
+            } else {
+              Write-Warning "Warnung: $source nicht gefunden, wird übersprungen"
+            }
+          }
       
       - name: Deploy to GitHub Pages Repo
         if: success()
