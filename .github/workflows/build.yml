@@ -149,7 +149,28 @@ jobs:
       
       - name: Compile Updater with Nuitka
         run: |
-          python -m nuitka --standalone --mingw64 --windows-disable-console --output-dir=dist gc-updater.py
+          # Setze Umgebungsvariable für automatische Downloads
+          $env:NUITKA_DOWNLOAD_CONFIRM = "Yes"
+          
+          # Verwende die aktualisierte Option statt der veralteten --disable-console
+          python -m nuitka --standalone --mingw64 --windows-console-mode=disable --output-dir=dist gc-updater.py
+          
+          # Prüfe, ob die Kompilierung erfolgreich war
+          if (-not (Test-Path "dist/gc-updater.dist")) {
+            Write-Warning "Nuitka konnte gc-updater.py nicht kompilieren, versuche mit PyInstaller..."
+            
+            # Fallback: Kompiliere mit PyInstaller wenn Nuitka fehlschlägt
+            pyinstaller --onefile --windowed --name gc-updater --distpath dist/gc-updater.dist gc-updater.py
+            
+            # Prüfe, ob der Fallback erfolgreich war
+            if (-not (Test-Path "dist/gc-updater.dist/gc-updater.exe")) {
+              Write-Error "Fehler: Weder Nuitka noch PyInstaller konnten gc-updater.py kompilieren!"
+              exit 1
+            }
+          }
+          
+          # Zeige erfolgreiche Kompilierung an
+          Write-Host "Updater wurde erfolgreich kompiliert."
       
       - name: Generate SHA256 Hash
         shell: pwsh
