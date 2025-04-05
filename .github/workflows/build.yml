@@ -79,25 +79,27 @@ jobs:
         run: |
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
+          mkdir -p dist/temp_obfuscation
           
           # Setze spezielle Umgebungsvariablen für bessere Kompatibilität
           $env:PYTHONMALLOC = "malloc"
           
-          # Versuche eine selektivere Obfuskierung, um Speicherzugriffsfehler zu vermeiden
+          # Versuche mit einer direkteren Obfuskierungsmethode
           try {
-            Write-Host "Versuche selektive Obfuskierung mit PyArmor..."
+            Write-Host "Versuche Obfuskierung mit PyArmor..."
             
-            # Kopiere zuerst alle Dateien
-            Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            # Kopiere die Hauptdatei in ein temporäres Verzeichnis
+            Copy-Item "griefing_counter_tk.py" -Destination "dist/temp_obfuscation/" -Force
             
-            # Dann versuche nur die Hauptdatei obfuskieren (selektiver Ansatz)
-            cd dist/obfuscated
-            pyarmor obfuscate --restrict 0 --output . --exact griefing_counter_tk.py
-            cd ../..
+            # Obfuskiere von temporärem Verzeichnis nach dist/obfuscated
+            pyarmor obfuscate --restrict 0 --output dist/obfuscated dist/temp_obfuscation/griefing_counter_tk.py
             
             # Prüfe, ob die obfuskierte Datei existiert
             if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
               Write-Host "PyArmor Obfuskierung der Hauptdatei erfolgreich."
+              
+              # Kopiere alle anderen Python-Dateien
+              Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
               
               # Korrektur des PyTransform Moduls, falls vorhanden
               if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
@@ -116,7 +118,7 @@ jobs:
             # Alternativ: Versuche mit anderen Parametern
             try {
               # PyArmor mit weniger aggressiven Obfuskierungsoptionen
-              pyarmor obfuscate --restrict 0 --no-cross-protection --no-runtime --output dist/obfuscated griefing_counter_tk.py
+              pyarmor obfuscate --restrict 0 --no-cross-protection --no-runtime --output dist/obfuscated dist/temp_obfuscation/griefing_counter_tk.py
               
               if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
                 Write-Host "PyArmor Obfuskierung mit alternativen Parametern erfolgreich."
@@ -133,12 +135,16 @@ jobs:
               Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
               Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
             }
+          } finally {
+            # Aufräumen: Entferne temporäres Verzeichnis
+            Remove-Item -Path "dist/temp_obfuscation" -Recurse -Force -ErrorAction SilentlyContinue
           }
           
           # Vergewissere dich, dass die Datei wirklich existiert (obfuskiert oder original)
           if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
             Write-Host "Quelldateien für Kompilierung bereit."
             echo "obfuscated_file_exists=true" >> $env:GITHUB_OUTPUT
+            exit 0  # Explizit erfolgreich beenden
           } else {
             Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
             exit 1
