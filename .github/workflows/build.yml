@@ -37,8 +37,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor  # Neueste Version statt 6.7.4
-          pip install pyinstaller  # PyInstaller gleich installieren für einfacheren Fallback
+          pip install pyarmor==6.7.0  # Spezifische Version, die besser mit Python 3.11 funktionieren könnte
+          pip install pyinstaller
       
       - name: Extract Version from Tag
         id: get_version
@@ -75,22 +75,43 @@ jobs:
           Get-Content version.json
       
       - name: Apply PyArmor to Main Script
-        continue-on-error: true # Erlaube Fehler bei PyArmor
         id: pyarmor_step
         run: |
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Direkt zum Fallback übergehen, da PyArmor Python 3.11+ nicht unterstützt
-          Write-Warning "Python 3.11+ wird von PyArmor nicht unterstützt, verwende Original-Dateien"
-          Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
-          # Kopiere auch alle anderen Python-Dateien
-          Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+          # Versuche mit einer älteren Version von PyArmor, die mit Python 3.11 funktionieren sollte
+          try {
+            Write-Host "Versuche Obfuskierung mit PyArmor 6.7.0..."
+            pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+            
+            # Prüfe, ob die obfuskierte Datei existiert
+            if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
+              Write-Host "PyArmor Obfuskierung erfolgreich abgeschlossen."
+              
+              # Kopiere alle Python-Dateien außer die bereits obfuskierte
+              Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+              
+              # Korrektur des PyTransform Moduls, falls vorhanden
+              if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
+                Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
+                Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force -ErrorAction SilentlyContinue
+              }
+            } else {
+              throw "Obfuskierte Datei wurde nicht gefunden."
+            }
+          } catch {
+            Write-Warning "PyArmor hat einen Fehler zurückgegeben: $_"
+            Write-Host "Kopiere stattdessen Original-Dateien..."
+            
+            # Kopiere Original-Dateien als Fallback
+            Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
+            Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+          }
           
-          # Vergewissere dich, dass die Datei wirklich existiert
+          # Vergewissere dich, dass die Datei wirklich existiert (obfuskiert oder original)
           if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-            Write-Host "Obfuskierte Datei oder Fallback existiert."
-            # Neue GitHub Actions Syntax für Output-Variablen
+            Write-Host "Quelldateien für Kompilierung bereit."
             echo "obfuscated_file_exists=true" >> $env:GITHUB_OUTPUT
           } else {
             Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
