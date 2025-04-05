@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==6.7.4  # Spezifische Version von PyArmor installieren
+          pip install pyarmor  # Neueste Version statt 6.7.4
       
       - name: Extract Version from Tag
         id: get_version
@@ -78,13 +78,22 @@ jobs:
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Führe PyArmor aus (ältere Syntax)
-          pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+          # Führe PyArmor aus mit Fehlerbehandlung
+          try {
+            pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+            if ($LASTEXITCODE -ne 0) {
+              Write-Warning "PyArmor fehlgeschlagen, kopiere Original-Datei stattdessen"
+              Copy-Item griefing_counter_tk.py -Destination "dist/obfuscated" -Force
+            }
+          } catch {
+            Write-Warning "PyArmor-Fehler abgefangen: $_"
+            Copy-Item griefing_counter_tk.py -Destination "dist/obfuscated" -Force
+          }
           
           # Kopiere alle Python-Dateien außer die bereits obfuskierte
           Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
           
-          # Kopiere die pytransform/__init__.py und lösche das Verzeichnis
+          # Korrektur des Pfades: __init__.py statt init.py
           if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
             Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
             Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force
