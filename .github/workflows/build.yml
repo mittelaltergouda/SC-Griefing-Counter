@@ -189,45 +189,41 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       # Alternative Methode für GitHub Pages
-      - name: Create index.html
+      - name: Create index.html file
         shell: pwsh
         run: |
-          $htmlContent = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>SC Griefing Counter Downloads</title>
-    <meta charset='utf-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { color: #333; }
-        a { color: #0066cc; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        .download-button { 
-            display: inline-block; 
-            background: #4CAF50; 
-            color: white; 
-            padding: 10px 20px; 
-            margin: 10px 0; 
-            border-radius: 4px; 
-        }
-    </style>
-</head>
-<body>
-    <h1>SC Griefing Counter Downloads</h1>
-    <p>Version: ${{ steps.get_version.outputs.app_version }}</p>
-    <p>Release-Datum: $(Get-Date -Format 'yyyy-MM-dd')</p>
-    <p><a href='griefing_counter.exe' class='download-button'>Download Application</a></p>
-    <p><a href='version.json'>Version Info</a></p>
-    <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>
-</body>
-</html>
-"@
+          # Erstelle Verzeichnis
+          New-Item -ItemType Directory -Path "pages-content" -Force
           
-          # Erstelle Verzeichnis und speichere HTML-Datei
-          mkdir -p pages-content
-          $htmlContent | Out-File -FilePath "pages-content/index.html" -Encoding utf8
+          # HTML-Inhalt als separate Zeilen, um YAML-Probleme zu vermeiden
+          $lines = @(
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "    <title>SC Griefing Counter Downloads</title>",
+            "    <meta charset='utf-8'>",
+            "    <meta name='viewport' content='width=device-width, initial-scale=1'>",
+            "    <style>",
+            "        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }",
+            "        h1 { color: #333; }",
+            "        a { color: #0066cc; text-decoration: none; }",
+            "        a:hover { text-decoration: underline; }",
+            "        .download-button { display: inline-block; background: #4CAF50; color: white; padding: 10px 20px; margin: 10px 0; border-radius: 4px; }",
+            "    </style>",
+            "</head>",
+            "<body>",
+            "    <h1>SC Griefing Counter Downloads</h1>",
+            "    <p>Version: ${{ steps.get_version.outputs.app_version }}</p>",
+            "    <p>Release-Datum: $(Get-Date -Format 'yyyy-MM-dd')</p>",
+            "    <p><a href='griefing_counter.exe' class='download-button'>Download Application</a></p>",
+            "    <p><a href='version.json'>Version Info</a></p>",
+            "    <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>",
+            "</body>",
+            "</html>"
+          )
+          
+          # In Datei schreiben
+          $lines | Out-File -FilePath "pages-content/index.html" -Encoding UTF8
 
       - name: Prepare GitHub Pages Content
         run: |
