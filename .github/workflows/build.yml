@@ -80,8 +80,13 @@ jobs:
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Führe PyArmor aus
-          pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+          # Da PyArmor 8.0+ Syntax geändert hat, versuche die neue und alte Syntax
+          try {
+            # Versuche zuerst mit pyarmor-7 (alte Version)
+            pyarmor-7 obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+          } catch {
+            Write-Warning "Alte PyArmor-Syntax fehlgeschlagen, überspringe Obfuskierung"
+          }
           
           # Prüfe ob PyArmor erfolgreich war, wenn nicht kopiere Original-Dateien
           if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
@@ -102,6 +107,7 @@ jobs:
           
           # Vergewissere dich, dass die Datei wirklich existiert
           if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
+            Write-Host "Obfuskierte Datei oder Fallback existiert."
             Write-Host "::set-output name=obfuscated_file_exists::true"
           } else {
             Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
@@ -120,25 +126,44 @@ jobs:
           if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
             Write-Host "Datei gefunden, starte Nuitka..."
             
-            # Nuitka mit verbesserter Fehlerbehandlung ausführen
-            python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py
+            # Nuitka mit automatischer Bestätigung des GCC-Downloads
+            $env:NUITKA_DOWNLOAD_CONFIRM = "Yes"  # Setze Umgebungsvariable für automatisches "Yes"
+            $nuitkaCmd = "python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
             
-            # Prüfe ob die Kompilierung erfolgreich war
-            if (Test-Path "dist/griefing_counter_tk.dist") {
-              Write-Host "Nuitka-Kompilierung erfolgreich. Benenne Verzeichnis um..."
-              Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
-            } else {
-              Write-Error "Nuitka-Kompilierung fehlgeschlagen. Verzeichnis dist/griefing_counter_tk.dist nicht gefunden!"
-              exit 1
+            # Führe Nuitka aus und fange mögliche Fehler ab
+            try {
+              Invoke-Expression $nuitkaCmd
+              $nuitkaSuccess = $?
+            } catch {
+              Write-Warning "Nuitka ist mit einem Fehler fehlgeschlagen: $_"
+              $nuitkaSuccess = $false
             }
             
-            # Überprüfe und benenne die ausführbare Datei um
-            if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
-              Write-Host "Ausführbare Datei gefunden. Benenne sie um..."
-              Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+            # Prüfe ob die Kompilierung erfolgreich war
+            if ($nuitkaSuccess -and (Test-Path "dist/griefing_counter_tk.dist")) {
+              Write-Host "Nuitka-Kompilierung erfolgreich. Benenne Verzeichnis um..."
+              Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
+              
+              # Überprüfe und benenne die ausführbare Datei um
+              if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
+                Write-Host "Ausführbare Datei gefunden. Benenne sie um..."
+                Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+              } else {
+                Write-Error "Die Datei dist/griefing_counter/griefing_counter_tk.exe wurde nicht gefunden!"
+                exit 1
+              }
             } else {
-              Write-Error "Die Datei dist/griefing_counter/griefing_counter_tk.exe wurde nicht gefunden!"
-              exit 1
+              Write-Error "Nuitka-Kompilierung fehlgeschlagen. Versuche alternatives Build-Verfahren..."
+              
+              # Fallback-Methode: Verwende PyInstaller, falls vorhanden oder installiere es
+              pip install pyinstaller
+              pyinstaller --onefile --windowed --name griefing_counter --distpath dist/griefing_counter dist/obfuscated/griefing_counter_tk.py
+              
+              # Prüfe, ob PyInstaller erfolgreich war
+              if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
+                Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller konnten ein Build erstellen!"
+                exit 1
+              }
             }
           } else {
             Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht nach Fallback-Versuch!"
