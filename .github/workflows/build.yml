@@ -41,6 +41,30 @@ jobs:
           pip install pyinstaller
           pip install tzdata  # Füge tzdata-Paket hinzu
       
+      - name: Install Pre-requisites for Nuitka
+        run: |
+          # MinGW-64 installieren (für C-Compiler)
+          # Verzeichnis erstellen
+          $mingwDir = "C:\mingw64bin"
+          mkdir -p $mingwDir
+          
+          # MinGW64 herunterladen und extrahieren - genau die Version, die Nuitka benötigt
+          $mingwUrl = "https://github.com/brechtsanders/winlibs_mingw/releases/download/12.2.0-14.0.6-10.0.0-msvcrt-r4/winlibs-x86_64-posix-seh-gcc-12.2.0-mingw-w64-10.0.0-r4.zip"
+          $mingwZip = "$mingwDir\mingw64.zip"
+          
+          Write-Host "Lade MinGW64 herunter..."
+          Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwZip
+          
+          Write-Host "Extrahiere MinGW64..."
+          Expand-Archive -Path $mingwZip -DestinationPath $mingwDir -Force
+          
+          # Füge den Pfad zur PATH-Umgebungsvariable hinzu
+          $env:PATH = "$mingwDir\mingw64\bin;$env:PATH"
+          
+          # Verifiziere die Installation
+          Write-Host "Verifiziere gcc..."
+          gcc --version
+      
       - name: Extract Version from Tag
         id: get_version
         shell: pwsh
@@ -151,11 +175,9 @@ jobs:
             exit 1
           }
       
-      - name: Compile Main Program with PyInstaller
+      - name: Compile Main Program with Nuitka
         run: |
-          # Da Nuitka in der Pipeline Probleme mit dem GCC-Compiler hat,
-          # verwenden wir stattdessen direkt PyInstaller
-          Write-Host "Überspringe Nuitka wegen GCC-Compiler-Problemen, verwende direkt PyInstaller..."
+          Write-Host "Kompiliere Hauptprogramm mit Nuitka für bessere Sicherheit..."
           
           # Vergewissere dich, dass die Quelldatei existiert
           if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
@@ -163,13 +185,25 @@ jobs:
             Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
           }
           
-          # Erstelle das Zielverzeichnis
-          if (-not (Test-Path "dist/griefing_counter")) {
-            mkdir -p "dist/griefing_counter"
-          }
+          # Vergewissere dich, dass alle benötigten Module auch kopiert wurden
+          Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py", "gc-updater.py" | 
+            Where-Object { -not (Test-Path "dist/obfuscated/$_") } | 
+            ForEach-Object { Copy-Item $_ -Destination "dist/obfuscated/" -Force }
           
-          # Erstelle eine .spec Datei für PyInstaller mit tzdata als verstecktem Import
-          $specContent = @"
+          # Setze zusätzliche Nuitka-Parameter für verbesserte Sicherheit
+          $nuitkaCmd = "python -m nuitka --standalone --mingw64 --windows-console-mode=disable --include-package=tkinter --include-package=tkcalendar --include-module=tzdata --include-module=babel.numbers --remove-output --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
+          
+          # Führe Nuitka aus mit Fehlerbehandlung
+          try {
+            Invoke-Expression $nuitkaCmd
+            Write-Host "Nuitka-Kompilierung abgeschlossen."
+          }
+          catch {
+            Write-Error "Nuitka-Kompilierung fehlgeschlagen: $_"
+            Write-Warning "Versuche es erneut mit PyInstaller als Fallback..."
+            
+            # Fallback: Bei Fehlern von Nuitka verwende PyInstaller
+            $specContent = @"
 # -*- mode: python ; coding: utf-8 -*-
 
 block_cipher = None
@@ -213,44 +247,114 @@ exe = EXE(
     entitlements_file=None,
 )
 "@
-          $specContent | Out-File -FilePath "griefing_counter.spec" -Encoding utf8
-          
-          # Kompiliere mit PyInstaller und der erstellten .spec Datei
-          Write-Host "Kompiliere mit PyInstaller..."
-          pyinstaller --distpath dist/griefing_counter griefing_counter.spec
-          
-          # Prüfe, ob PyInstaller erfolgreich war
-          if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
-            Write-Error "Kritischer Fehler: PyInstaller konnte kein Build erstellen!"
-            exit 1
-          } else {
-            Write-Host "PyInstaller-Kompilierung erfolgreich abgeschlossen."
+            $specContent | Out-File -FilePath "griefing_counter.spec" -Encoding utf8
+            pyinstaller --distpath dist/griefing_counter griefing_counter.spec
           }
+          
+          # Prüfe, ob die Kompilierung erfolgreich war
+          if (Test-Path "dist/griefing_counter_tk.dist") {
+            Write-Host "Nuitka-Kompilierung erfolgreich. Benenne Verzeichnis um..."
+            
+            # Falls es bereits ein Zielverzeichnis gibt, entferne es
+            if (Test-Path "dist/griefing_counter") {
+              Remove-Item -Path "dist/griefing_counter" -Recurse -Force
+            }
+            
+            # Benenne das Verzeichnis um
+            Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
+            
+            # Benenne die ausführbare Datei um, falls nötig
+            if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
+              Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+            }
+          } elseif (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
+            Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller haben eine ausführbare Datei erstellt!"
+            exit 1
+          }
+          
+          Write-Host "Kompilierung abgeschlossen."
       
       - name: Compile Updater with Nuitka
         run: |
-          # Setze Umgebungsvariable für automatische Downloads
-          $env:NUITKA_DOWNLOAD_CONFIRM = "Yes"
+          Write-Host "Kompiliere Updater mit Nuitka für bessere Sicherheit..."
           
-          # Verwende die aktualisierte Option statt der veralteten --disable-console
-          python -m nuitka --standalone --mingw64 --windows-console-mode=disable --output-dir=dist gc-updater.py
+          # Setze zusätzliche Nuitka-Parameter für verbesserte Sicherheit
+          $updaterNuitkaCmd = "python -m nuitka --standalone --mingw64 --windows-console-mode=disable --include-package=requests --remove-output --output-dir=dist gc-updater.py"
           
-          # Prüfe, ob die Kompilierung erfolgreich war
-          if (-not (Test-Path "dist/gc-updater.dist")) {
-            Write-Warning "Nuitka konnte gc-updater.py nicht kompilieren, versuche mit PyInstaller..."
+          # Führe Nuitka für den Updater aus mit Fehlerbehandlung
+          try {
+            Invoke-Expression $updaterNuitkaCmd
+            Write-Host "Nuitka-Kompilierung des Updaters abgeschlossen."
             
-            # Fallback: Kompiliere mit PyInstaller wenn Nuitka fehlschlägt
-            pyinstaller --onefile --windowed --name gc-updater --distpath dist/gc-updater.dist gc-updater.py
-            
-            # Prüfe, ob der Fallback erfolgreich war
-            if (-not (Test-Path "dist/gc-updater.dist/gc-updater.exe")) {
-              Write-Error "Fehler: Weder Nuitka noch PyInstaller konnten gc-updater.py kompilieren!"
-              exit 1
+            # Prüfe, ob die Kompilierung erfolgreich war
+            if (Test-Path "dist/gc-updater.dist") {
+              Write-Host "Updater wurde erfolgreich mit Nuitka kompiliert."
+            } else {
+              throw "Nuitka konnte den Updater nicht erstellen."
             }
           }
+          catch {
+            Write-Warning "Nuitka-Kompilierung des Updaters fehlgeschlagen: $_"
+            Write-Host "Versuche es stattdessen mit PyInstaller..."
+            
+            # Fallback zu PyInstaller, falls Nuitka fehlschlägt
+            # Erstelle eine .spec Datei für den Updater
+            $updaterSpecContent = @"
+# -*- mode: python ; coding: utf-8 -*-
+
+block_cipher = None
+
+a = Analysis(
+    ['gc-updater.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=['requests'],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='gc-updater',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+"@
+            $updaterSpecContent | Out-File -FilePath "gc-updater.spec" -Encoding utf8
+            
+            # Kompiliere mit PyInstaller
+            pyinstaller --distpath dist/gc-updater.dist gc-updater.spec
+          }
           
-          # Zeige erfolgreiche Kompilierung an
-          Write-Host "Updater wurde erfolgreich kompiliert."
+          # Schließliche Überprüfung, ob der Build erfolgreich war (entweder durch Nuitka oder PyInstaller)
+          if (-not (Test-Path "dist/gc-updater.dist/gc-updater.exe")) {
+            Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller konnten den Updater erstellen!"
+            exit 1
+          } else {
+            Write-Host "Updater wurde erfolgreich kompiliert."
       
       - name: Generate SHA256 Hash
         shell: pwsh
