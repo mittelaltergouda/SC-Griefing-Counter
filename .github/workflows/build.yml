@@ -80,35 +80,17 @@ jobs:
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Da PyArmor 8.0+ Syntax geändert hat, versuche die neue und alte Syntax
-          try {
-            # Versuche zuerst mit pyarmor-7 (alte Version)
-            pyarmor-7 obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
-          } catch {
-            Write-Warning "Alte PyArmor-Syntax fehlgeschlagen, überspringe Obfuskierung"
-          }
-          
-          # Prüfe ob PyArmor erfolgreich war, wenn nicht kopiere Original-Dateien
-          if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
-            Write-Warning "PyArmor fehlgeschlagen, kopiere Original-Dateien"
-            Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
-            # Kopiere auch alle anderen Python-Dateien
-            Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
-          } else {
-            # Kopiere alle Python-Dateien außer die bereits obfuskierte
-            Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
-            
-            # Korrektur des PyTransform Moduls, falls vorhanden
-            if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
-              Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
-              Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force -ErrorAction SilentlyContinue
-            }
-          }
+          # Direkt zum Fallback übergehen, da PyArmor Python 3.11+ nicht unterstützt
+          Write-Warning "Python 3.11+ wird von PyArmor nicht unterstützt, verwende Original-Dateien"
+          Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
+          # Kopiere auch alle anderen Python-Dateien
+          Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
           
           # Vergewissere dich, dass die Datei wirklich existiert
           if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
             Write-Host "Obfuskierte Datei oder Fallback existiert."
-            Write-Host "::set-output name=obfuscated_file_exists::true"
+            # Neue GitHub Actions Syntax für Output-Variablen
+            echo "obfuscated_file_exists=true" >> $env:GITHUB_OUTPUT
           } else {
             Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
             exit 1
