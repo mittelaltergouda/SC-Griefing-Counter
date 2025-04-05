@@ -126,11 +126,10 @@ class GriefingCounterApp(tk.Tk):
         # Initialize logging
         self.logger = logging.getLogger(__name__)
         
-        # Initialisiere die Datenbank hier bereits
-        database.init_db()
+        # Initialisiere die Datenbank NICHT hier - stattdessen wird sie später initialisiert
+        # database.init_db()  # Diese Zeile wird entfernt
         
         # Speichere die aktiven Filter als Instanzvariablen
-        # Setze standardmäßig kein Datum (Clear)
         self.active_start_date = None
         self.active_end_date = None
         
@@ -138,8 +137,19 @@ class GriefingCounterApp(tk.Tk):
         self.setup_ui()
         self.setup_observers()
         
-        # Automatisch den Apply Button klicken beim Start der Anwendung
-        self.after(1000, self.on_apply_player_name)
+        # Vor dem Start der Anwendung prüfen, ob ein Spielername vorhanden ist
+        # Wenn nicht, einen Dialog anzeigen
+        if not config.CURRENT_PLAYER_NAME:
+            self.show_player_name_dialog()
+        else:
+            # Nur wenn ein Spielername vorhanden ist, die Datenbank initialisieren
+            try:
+                database.init_db()
+                # Automatisch den Apply Button klicken beim Start der Anwendung
+                self.after(1000, self.on_apply_player_name)
+            except Exception as e:
+                self.logger.error(f"Fehler bei Datenbankinitialisierung: {str(e)}")
+                self.show_error(f"Datenbankfehler: {str(e)}")
         
         # Update-Check starten (nach 5 Sekunden)
         self.after(5000, self.check_for_updates)
@@ -762,6 +772,36 @@ class GriefingCounterApp(tk.Tk):
             self.logger.error(f"Fehler beim Update-Check: {str(e)}")
             # Trotz Fehler wird der nächste Check für später geplant
             self.after(24 * 60 * 60 * 1000, self.check_for_updates)
+
+    def show_player_name_dialog(self):
+        """Zeigt einen Dialog an, in dem der Benutzer seinen Spielernamen eingeben muss."""
+        from tkinter import simpledialog
+        
+        # Dialog anzeigen und auf Eingabe warten
+        player_name = simpledialog.askstring(
+            "Spielername benötigt", 
+            "Bitte geben Sie Ihren Star Citizen Spielernamen ein:",
+            initialvalue=self.var_player_name.get()
+        )
+        
+        # Wenn der Benutzer einen Namen eingegeben hat
+        if player_name:
+            self.logger.info(f"Spielername wurde gesetzt auf: {player_name}")
+            self.var_player_name.set(player_name)
+            config.CURRENT_PLAYER_NAME = player_name
+            config.save_config()
+            
+            # Initialisiere die Datenbank mit dem neuen Spielernamen
+            try:
+                database.init_db()
+                # Automatisch den Apply Button klicken
+                self.after(1000, self.on_apply_player_name)
+            except Exception as e:
+                self.logger.error(f"Fehler bei Datenbankinitialisierung: {str(e)}")
+                self.show_error(f"Datenbankfehler: {str(e)}")
+        else:
+            # Wenn kein Name eingegeben wurde, erneut nachfragen
+            self.after(500, self.show_player_name_dialog)
 
 def start_gui():
     """Entry point für die Tkinter-App."""

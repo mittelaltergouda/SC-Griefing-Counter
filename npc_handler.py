@@ -19,6 +19,11 @@ def auto_categorize_npc(npc_name):
     """
     name = clean_npc_name(npc_name).lower()
     
+    # Spezielle Regel für ARGO_ATLS_GEO - als "unknown" kategorisieren
+    if "argo_atls_geo" in name:
+        logger.debug(f"NPC {npc_name} als 'unknown' kategorisiert (ARGO_ATLS_GEO)")
+        return "unknown"
+    
     # Erweiterte Kategorisierung: Alle Namen mit "hangar" und "unknown" als "unknown" klassifizieren
     if "hangar" in name.lower() and "unknown" in name.lower():
         logger.debug(f"NPC {npc_name} als 'unknown' kategorisiert (enthält 'hangar' und 'unknown')")
