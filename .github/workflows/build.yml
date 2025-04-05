@@ -80,33 +80,59 @@ jobs:
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Versuche mit einer älteren Version von PyArmor, die mit Python 3.11 funktionieren sollte
+          # Setze spezielle Umgebungsvariablen für bessere Kompatibilität
+          $env:PYTHONMALLOC = "malloc"
+          
+          # Versuche eine selektivere Obfuskierung, um Speicherzugriffsfehler zu vermeiden
           try {
-            Write-Host "Versuche Obfuskierung mit PyArmor 6.7.0..."
-            pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+            Write-Host "Versuche selektive Obfuskierung mit PyArmor..."
+            
+            # Kopiere zuerst alle Dateien
+            Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            
+            # Dann versuche nur die Hauptdatei obfuskieren (selektiver Ansatz)
+            cd dist/obfuscated
+            pyarmor obfuscate --restrict 0 --output . --exact griefing_counter_tk.py
+            cd ../..
             
             # Prüfe, ob die obfuskierte Datei existiert
             if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-              Write-Host "PyArmor Obfuskierung erfolgreich abgeschlossen."
-              
-              # Kopiere alle Python-Dateien außer die bereits obfuskierte
-              Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+              Write-Host "PyArmor Obfuskierung der Hauptdatei erfolgreich."
               
               # Korrektur des PyTransform Moduls, falls vorhanden
               if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
                 Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
+                Copy-Item "dist/obfuscated/pytransform/_pytransform.dll" -Destination "dist/obfuscated" -Force -ErrorAction SilentlyContinue
                 Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "PyTransform-Modul korrigiert."
               }
             } else {
-              throw "Obfuskierte Datei wurde nicht gefunden."
+              throw "Obfuskierte Hauptdatei wurde nicht gefunden."
             }
           } catch {
             Write-Warning "PyArmor hat einen Fehler zurückgegeben: $_"
-            Write-Host "Kopiere stattdessen Original-Dateien..."
+            Write-Host "Versuche alternative PyArmor-Parameter..."
             
-            # Kopiere Original-Dateien als Fallback
-            Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
-            Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            # Alternativ: Versuche mit anderen Parametern
+            try {
+              # PyArmor mit weniger aggressiven Obfuskierungsoptionen
+              pyarmor obfuscate --restrict 0 --no-cross-protection --no-runtime --output dist/obfuscated griefing_counter_tk.py
+              
+              if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
+                Write-Host "PyArmor Obfuskierung mit alternativen Parametern erfolgreich."
+                # Kopiere alle anderen Python-Dateien
+                Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+              } else {
+                throw "Obfuskierte Datei wurde auch mit alternativen Parametern nicht gefunden."
+              }
+            } catch {
+              Write-Warning "Auch alternative PyArmor-Parameter fehlgeschlagen: $_"
+              Write-Host "Kopiere Original-Dateien als letzten Ausweg..."
+              
+              # Kopiere Original-Dateien als letzten Fallback
+              Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
+              Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            }
           }
           
           # Vergewissere dich, dass die Datei wirklich existiert (obfuskiert oder original)
