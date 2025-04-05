@@ -74,47 +74,74 @@ jobs:
           Get-Content version.json
       
       - name: Apply PyArmor to Main Script
+        continue-on-error: true # Erlaube Fehler bei PyArmor
+        id: pyarmor_step
         run: |
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Führe PyArmor aus mit Fehlerbehandlung
-          try {
-            pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
-            if ($LASTEXITCODE -ne 0) {
-              Write-Warning "PyArmor fehlgeschlagen, kopiere Original-Datei stattdessen"
-              Copy-Item griefing_counter_tk.py -Destination "dist/obfuscated" -Force
+          # Führe PyArmor aus
+          pyarmor obfuscate --restrict 0 --output dist/obfuscated griefing_counter_tk.py
+          
+          # Prüfe ob PyArmor erfolgreich war, wenn nicht kopiere Original-Dateien
+          if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
+            Write-Warning "PyArmor fehlgeschlagen, kopiere Original-Dateien"
+            Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
+            # Kopiere auch alle anderen Python-Dateien
+            Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+          } else {
+            # Kopiere alle Python-Dateien außer die bereits obfuskierte
+            Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            
+            # Korrektur des PyTransform Moduls, falls vorhanden
+            if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
+              Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
+              Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force -ErrorAction SilentlyContinue
             }
-          } catch {
-            Write-Warning "PyArmor-Fehler abgefangen: $_"
-            Copy-Item griefing_counter_tk.py -Destination "dist/obfuscated" -Force
           }
           
-          # Kopiere alle Python-Dateien außer die bereits obfuskierte
-          Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
-          
-          # Korrektur des Pfades: __init__.py statt init.py
-          if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
-            Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
-            Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force
+          # Vergewissere dich, dass die Datei wirklich existiert
+          if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
+            Write-Host "::set-output name=obfuscated_file_exists::true"
+          } else {
+            Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
+            exit 1
           }
       
       - name: Compile Main Program with Nuitka
         run: |
-          python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py
-          
-          # Stellen Sie sicher, dass die Verzeichnisse existieren, bevor Sie sie umbenennen
-          if (Test-Path "dist/griefing_counter_tk.dist") {
-            Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
-          } else {
-            Write-Error "Das Verzeichnis dist/griefing_counter_tk.dist wurde nicht gefunden!"
-            exit 1
+          # Verifiziere, dass die Quelldatei existiert, bevor wir Nuitka ausführen
+          if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
+            Write-Warning "Quelldatei dist/obfuscated/griefing_counter_tk.py nicht gefunden. Verwende die Original-Datei."
+            Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
           }
           
-          if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
-            Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+          # Überprüfe noch einmal den Pfad
+          if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
+            Write-Host "Datei gefunden, starte Nuitka..."
+            
+            # Nuitka mit verbesserter Fehlerbehandlung ausführen
+            python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py
+            
+            # Prüfe ob die Kompilierung erfolgreich war
+            if (Test-Path "dist/griefing_counter_tk.dist") {
+              Write-Host "Nuitka-Kompilierung erfolgreich. Benenne Verzeichnis um..."
+              Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
+            } else {
+              Write-Error "Nuitka-Kompilierung fehlgeschlagen. Verzeichnis dist/griefing_counter_tk.dist nicht gefunden!"
+              exit 1
+            }
+            
+            # Überprüfe und benenne die ausführbare Datei um
+            if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
+              Write-Host "Ausführbare Datei gefunden. Benenne sie um..."
+              Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
+            } else {
+              Write-Error "Die Datei dist/griefing_counter/griefing_counter_tk.exe wurde nicht gefunden!"
+              exit 1
+            }
           } else {
-            Write-Error "Die Datei dist/griefing_counter/griefing_counter_tk.exe wurde nicht gefunden!"
+            Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht nach Fallback-Versuch!"
             exit 1
           }
       
