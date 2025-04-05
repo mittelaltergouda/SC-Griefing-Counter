@@ -39,6 +39,7 @@ jobs:
           pip install watchdog tkcalendar
           pip install pyarmor==6.7.0  # Spezifische Version, die besser mit Python 3.11 funktionieren könnte
           pip install pyinstaller
+          pip install tzdata  # Füge tzdata-Paket hinzu
       
       - name: Extract Version from Tag
         id: get_version
@@ -167,9 +168,56 @@ jobs:
             mkdir -p "dist/griefing_counter"
           }
           
-          # Kompiliere mit PyInstaller
+          # Erstelle eine .spec Datei für PyInstaller mit tzdata als verstecktem Import
+          $specContent = @"
+# -*- mode: python ; coding: utf-8 -*-
+
+block_cipher = None
+
+a = Analysis(
+    ['dist/obfuscated/griefing_counter_tk.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=['tzdata', 'babel.numbers'],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='griefing_counter',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+"@
+          $specContent | Out-File -FilePath "griefing_counter.spec" -Encoding utf8
+          
+          # Kompiliere mit PyInstaller und der erstellten .spec Datei
           Write-Host "Kompiliere mit PyInstaller..."
-          pyinstaller --onefile --windowed --name griefing_counter --distpath dist/griefing_counter dist/obfuscated/griefing_counter_tk.py
+          pyinstaller --distpath dist/griefing_counter griefing_counter.spec
           
           # Prüfe, ob PyInstaller erfolgreich war
           if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
