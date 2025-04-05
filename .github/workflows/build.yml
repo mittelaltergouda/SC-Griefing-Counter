@@ -38,6 +38,7 @@ jobs:
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
           pip install pyarmor  # Neueste Version statt 6.7.4
+          pip install pyinstaller  # PyInstaller gleich installieren für einfacheren Fallback
       
       - name: Extract Version from Tag
         id: get_version
@@ -96,60 +97,33 @@ jobs:
             exit 1
           }
       
-      - name: Compile Main Program with Nuitka
+      - name: Compile Main Program with PyInstaller
         run: |
-          # Verifiziere, dass die Quelldatei existiert, bevor wir Nuitka ausführen
+          # Da Nuitka in der Pipeline Probleme mit dem GCC-Compiler hat,
+          # verwenden wir stattdessen direkt PyInstaller
+          Write-Host "Überspringe Nuitka wegen GCC-Compiler-Problemen, verwende direkt PyInstaller..."
+          
+          # Vergewissere dich, dass die Quelldatei existiert
           if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
             Write-Warning "Quelldatei dist/obfuscated/griefing_counter_tk.py nicht gefunden. Verwende die Original-Datei."
             Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
           }
           
-          # Überprüfe noch einmal den Pfad
-          if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-            Write-Host "Datei gefunden, starte Nuitka..."
-            
-            # Nuitka mit automatischer Bestätigung des GCC-Downloads
-            $env:NUITKA_DOWNLOAD_CONFIRM = "Yes"  # Setze Umgebungsvariable für automatisches "Yes"
-            $nuitkaCmd = "python -m nuitka --standalone --mingw64 --plugin-enable=tk-inter --windows-disable-console --include-package=tkinter --include-package=tkcalendar --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
-            
-            # Führe Nuitka aus und fange mögliche Fehler ab
-            try {
-              Invoke-Expression $nuitkaCmd
-              $nuitkaSuccess = $?
-            } catch {
-              Write-Warning "Nuitka ist mit einem Fehler fehlgeschlagen: $_"
-              $nuitkaSuccess = $false
-            }
-            
-            # Prüfe ob die Kompilierung erfolgreich war
-            if ($nuitkaSuccess -and (Test-Path "dist/griefing_counter_tk.dist")) {
-              Write-Host "Nuitka-Kompilierung erfolgreich. Benenne Verzeichnis um..."
-              Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
-              
-              # Überprüfe und benenne die ausführbare Datei um
-              if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
-                Write-Host "Ausführbare Datei gefunden. Benenne sie um..."
-                Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
-              } else {
-                Write-Error "Die Datei dist/griefing_counter/griefing_counter_tk.exe wurde nicht gefunden!"
-                exit 1
-              }
-            } else {
-              Write-Error "Nuitka-Kompilierung fehlgeschlagen. Versuche alternatives Build-Verfahren..."
-              
-              # Fallback-Methode: Verwende PyInstaller, falls vorhanden oder installiere es
-              pip install pyinstaller
-              pyinstaller --onefile --windowed --name griefing_counter --distpath dist/griefing_counter dist/obfuscated/griefing_counter_tk.py
-              
-              # Prüfe, ob PyInstaller erfolgreich war
-              if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
-                Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller konnten ein Build erstellen!"
-                exit 1
-              }
-            }
-          } else {
-            Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht nach Fallback-Versuch!"
+          # Erstelle das Zielverzeichnis
+          if (-not (Test-Path "dist/griefing_counter")) {
+            mkdir -p "dist/griefing_counter"
+          }
+          
+          # Kompiliere mit PyInstaller
+          Write-Host "Kompiliere mit PyInstaller..."
+          pyinstaller --onefile --windowed --name griefing_counter --distpath dist/griefing_counter dist/obfuscated/griefing_counter_tk.py
+          
+          # Prüfe, ob PyInstaller erfolgreich war
+          if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
+            Write-Error "Kritischer Fehler: PyInstaller konnte kein Build erstellen!"
             exit 1
+          } else {
+            Write-Host "PyInstaller-Kompilierung erfolgreich abgeschlossen."
           }
       
       - name: Compile Updater with Nuitka
