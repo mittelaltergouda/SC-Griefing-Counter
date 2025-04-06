@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==6.7.0  # Spezifische Version, die besser mit Python 3.11 funktionieren könnte
+          pip install pyarmor==7.7.4  # Neuere Version von PyArmor für bessere Stabilität mit Python 3.11
           pip install pyinstaller
           pip install tzdata  # Füge tzdata-Paket hinzu
       
@@ -157,15 +157,31 @@ jobs:
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
           
-          # Da PyArmor Probleme hat, verwenden wir eine direktere Methode
-          Write-Host "PyArmor scheint instabil zu sein. Verwende eine alternative Methode..."
+          # Wende PyArmor für Code-Obfuskation an
+          Write-Host "Führe PyArmor Obfuskation durch..."
           
-          # Kopiere alle Python-Dateien direkt in das obfuscated-Verzeichnis
-          Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
+          try {
+            # Obfusziere das Hauptskript und alle importierten Module
+            python -m pyarmor obfuscate --recursive --output dist/obfuscated griefing_counter_tk.py
+            
+            # Prüfe, ob die Obfuskation erfolgreich war
+            if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
+              Write-Host "PyArmor Obfuskation erfolgreich abgeschlossen."
+              "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            } else {
+              throw "Obfuskierte Datei wurde nicht erstellt"
+            }
+          } catch {
+            Write-Warning "PyArmor Obfuskation fehlgeschlagen: $_"
+            Write-Host "Verwende Fallback-Methode..."
+            
+            # Kopiere alle Python-Dateien direkt als Fallback
+            Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
           
           # Setze Output-Variable für den nächsten Schritt
           Write-Host "Python-Dateien für die Kompilierung vorbereitet."
-          "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       
       - name: Compile Main Program with Nuitka
         run: |
