@@ -102,7 +102,6 @@ Der automatisierte Build-Prozess führt folgende Schritte aus:
 
 Wenn die Nuitka-Kompilierung mit einem Fehler fehlschlägt, überprüfen Sie die Fehlerprotokolle. Häufige Probleme sind:
 
-- Falsche Parameter für Nuitka (--windows-console-mode vs. --windows-disable-console)
 - Fehlende Abhängigkeiten
 - Probleme mit dem MinGW64-Compiler
 

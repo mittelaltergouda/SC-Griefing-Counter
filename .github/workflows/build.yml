@@ -254,32 +254,59 @@ jobs:
           # Setze zusätzliche Nuitka-Parameter für verbesserte Sicherheit
           $nuitkaCmd = "python -m nuitka --standalone --mingw64 --windows-disable-console --include-package=tkinter --include-package=tkcalendar --include-module=tzdata --include-module=babel.numbers --remove-output --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
           
+          # Setze Erfolgsflag
+          $buildSuccess = $false
+          
           # Führe Nuitka aus mit Fehlerbehandlung
           try {
-            Invoke-Expression $nuitkaCmd
-            Write-Host "Nuitka-Kompilierung abgeschlossen."
+            # Führe Nuitka mit Timeout von 10 Minuten aus
+            $nuitkaProcess = Start-Process -FilePath "powershell" -ArgumentList "-Command", $nuitkaCmd -PassThru -NoNewWindow
+            $nuitkaProcess | Wait-Process -Timeout 600 -ErrorAction SilentlyContinue
+            
+            if ($nuitkaProcess.ExitCode -eq 0) {
+              Write-Host "Nuitka-Kompilierung erfolgreich abgeschlossen."
+              $buildSuccess = $true
+            } else {
+              Write-Error "Nuitka-Kompilierung fehlgeschlagen mit Exit-Code: $($nuitkaProcess.ExitCode)"
+              throw "Nuitka-Kompilierung fehlgeschlagen"
+            }
           }
           catch {
             Write-Error "Nuitka-Kompilierung fehlgeschlagen: $_"
-            Write-Warning "Versuche es erneut mit PyInstaller als Fallback..."
+            # Explizit auf PyInstaller umschalten
+            $buildSuccess = $false
+          }
+          
+          # Wenn Nuitka fehlschlägt, verwende PyInstaller als Fallback
+          if (-not $buildSuccess) {
+            Write-Warning "Nuitka fehlgeschlagen. Verwende PyInstaller als Fallback..."
             
-            # Fallback: Direkter PyInstaller-Aufruf ohne spec-Datei
-            Write-Host "Verwende PyInstaller direkt mit Kommandozeilenparametern..."
+            # Stelle sicher, dass wir ein sauberes Verzeichnis haben
+            if (Test-Path "dist/griefing_counter") {
+              Remove-Item -Path "dist/griefing_counter" -Recurse -Force -ErrorAction SilentlyContinue
+            }
             
             # Ausführen von PyInstaller mit allen erforderlichen Parametern 
-            pyinstaller --name=griefing_counter `
-                        --noconfirm `
-                        --windowed `
-                        --hidden-import=tzdata `
-                        --hidden-import=babel.numbers `
-                        --distpath=dist/griefing_counter `
-                        dist/obfuscated/griefing_counter_tk.py
+            $pyInstallerCmd = "pyinstaller --name=griefing_counter --noconfirm --windowed --hidden-import=tzdata --hidden-import=babel.numbers --distpath=dist dist/obfuscated/griefing_counter_tk.py"
+            
+            Write-Host "Führe PyInstaller aus: $pyInstallerCmd"
+            Invoke-Expression $pyInstallerCmd
             
             # Prüfe, ob PyInstaller erfolgreich war
-            if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
-              Write-Error "PyInstaller konnte die Anwendung nicht erstellen!"
-            } else {
+            if (Test-Path "dist/griefing_counter.exe") {
               Write-Host "PyInstaller hat die Anwendung erfolgreich erstellt."
+              $buildSuccess = $true
+              
+              # Erstelle griefing_counter-Verzeichnis falls es nicht existiert
+              if (-not (Test-Path "dist/griefing_counter")) {
+                New-Item -ItemType Directory -Path "dist/griefing_counter" -Force
+              }
+              
+              # Verschiebe die EXE-Datei in das richtige Verzeichnis
+              Move-Item -Path "dist/griefing_counter.exe" -Destination "dist/griefing_counter/" -Force
+            } else {
+              Write-Error "PyInstaller konnte die Anwendung nicht erstellen!"
+              exit 1
             }
           }
           
