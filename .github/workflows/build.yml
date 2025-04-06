@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==7.7.4  # Aktualisiert auf eine neuere PyArmor-Version, die möglicherweise stabiler ist
+          pip install pyarmor==9.0.8  # Installiert die neueste PyArmor 9.x Version
           pip install pyinstaller
           pip install tzdata  # Füge tzdata-Paket hinzu
       
