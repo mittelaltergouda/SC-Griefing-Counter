@@ -45,12 +45,12 @@ jobs:
         run: |
           # MinGW-64 installieren (für C-Compiler)
           # Verzeichnis erstellen
-          $mingwDir = "C:\mingw64bin"
-          mkdir -p $mingwDir
+          $mingwDir = "C:/mingw64bin"
+          mkdir -Force $mingwDir
           
-          # MinGW64 herunterladen und extrahieren - genau die Version, die Nuitka benötigt
+          # MinGW64 herunterladen und extrahieren
           $mingwUrl = "https://github.com/brechtsanders/winlibs_mingw/releases/download/12.2.0-14.0.6-10.0.0-msvcrt-r4/winlibs-x86_64-posix-seh-gcc-12.2.0-mingw-w64-10.0.0-r4.zip"
-          $mingwZip = "$mingwDir\mingw64.zip"
+          $mingwZip = "$mingwDir/mingw64.zip"
           
           Write-Host "Lade MinGW64 herunter..."
           Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwZip
@@ -69,13 +69,13 @@ jobs:
         id: get_version
         shell: pwsh
         run: |
-          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
-            $version = "${{ github.ref }}".Replace('refs/tags/v', '')
+          if ("${{ github.ref }}" -match "refs/tags/v(.+)") {
+            $version = $matches[1]
           } else {
             $version = "0.7.0"  # Fallback-Version
           }
-          # Speichere Version als Output-Variable
-          echo "app_version=$version" >> $env:GITHUB_OUTPUT
+          # Speichere Version als Output-Variable - korrigierte Syntax
+          "app_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           # Zeige Version im Log
           echo "Extrahierte Version: $version"
           
@@ -168,11 +168,9 @@ jobs:
           # Vergewissere dich, dass die Datei wirklich existiert (obfuskiert oder original)
           if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
             Write-Host "Quelldateien für Kompilierung bereit."
-            echo "obfuscated_file_exists=true" >> $env:GITHUB_OUTPUT
-            exit 0  # Explizit erfolgreich beenden
+            "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
             Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
-            exit 1
           }
       
       - name: Compile Main Program with Nuitka
@@ -202,53 +200,24 @@ jobs:
             Write-Error "Nuitka-Kompilierung fehlgeschlagen: $_"
             Write-Warning "Versuche es erneut mit PyInstaller als Fallback..."
             
-            # Fallback: Bei Fehlern von Nuitka verwende PyInstaller
-            $specContent = @"
-# -*- mode: python ; coding: utf-8 -*-
-
-block_cipher = None
-
-a = Analysis(
-    ['dist/obfuscated/griefing_counter_tk.py'],
-    pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=['tzdata', 'babel.numbers'],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
-    noarchive=False,
-)
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='griefing_counter',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-"@
-            $specContent | Out-File -FilePath "griefing_counter.spec" -Encoding utf8
-            pyinstaller --distpath dist/griefing_counter griefing_counter.spec
+            # Fallback: Direkter PyInstaller-Aufruf ohne spec-Datei
+            Write-Host "Verwende PyInstaller direkt mit Kommandozeilenparametern..."
+            
+            # Ausführen von PyInstaller mit allen erforderlichen Parametern 
+            pyinstaller --name=griefing_counter `
+                        --noconfirm `
+                        --windowed `
+                        --hidden-import=tzdata `
+                        --hidden-import=babel.numbers `
+                        --distpath=dist/griefing_counter `
+                        dist/obfuscated/griefing_counter_tk.py
+            
+            # Prüfe, ob PyInstaller erfolgreich war
+            if (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
+              Write-Error "PyInstaller konnte die Anwendung nicht erstellen!"
+            } else {
+              Write-Host "PyInstaller hat die Anwendung erfolgreich erstellt."
+            }
           }
           
           # Prüfe, ob die Kompilierung erfolgreich war
@@ -267,94 +236,13 @@ exe = EXE(
             if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
               Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
             }
-          } elseif (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
+          } 
+          elseif (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
             Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller haben eine ausführbare Datei erstellt!"
             exit 1
           }
           
           Write-Host "Kompilierung abgeschlossen."
-      
-      - name: Compile Updater with Nuitka
-        run: |
-          Write-Host "Kompiliere Updater mit Nuitka für bessere Sicherheit..."
-          
-          # Setze zusätzliche Nuitka-Parameter für verbesserte Sicherheit
-          $updaterNuitkaCmd = "python -m nuitka --standalone --mingw64 --windows-console-mode=disable --include-package=requests --remove-output --output-dir=dist gc-updater.py"
-          
-          # Führe Nuitka für den Updater aus mit Fehlerbehandlung
-          try {
-            Invoke-Expression $updaterNuitkaCmd
-            Write-Host "Nuitka-Kompilierung des Updaters abgeschlossen."
-            
-            # Prüfe, ob die Kompilierung erfolgreich war
-            if (Test-Path "dist/gc-updater.dist") {
-              Write-Host "Updater wurde erfolgreich mit Nuitka kompiliert."
-            } else {
-              throw "Nuitka konnte den Updater nicht erstellen."
-            }
-          }
-          catch {
-            Write-Warning "Nuitka-Kompilierung des Updaters fehlgeschlagen: $_"
-            Write-Host "Versuche es stattdessen mit PyInstaller..."
-            
-            # Fallback zu PyInstaller, falls Nuitka fehlschlägt
-            # Erstelle eine .spec Datei für den Updater
-            $updaterSpecContent = @"
-# -*- mode: python ; coding: utf-8 -*-
-
-block_cipher = None
-
-a = Analysis(
-    ['gc-updater.py'],
-    pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=['requests'],
-    hookspath=[],
-    hooksconfig={},
-    runtime_hooks=[],
-    excludes=[],
-    win_no_prefer_redirects=False,
-    win_private_assemblies=False,
-    cipher=block_cipher,
-    noarchive=False,
-)
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-
-exe = EXE(
-    pyz,
-    a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    [],
-    name='gc-updater',
-    debug=False,
-    bootloader_ignore_signals=False,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    runtime_tmpdir=None,
-    console=False,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
-)
-"@
-            $updaterSpecContent | Out-File -FilePath "gc-updater.spec" -Encoding utf8
-            
-            # Kompiliere mit PyInstaller
-            pyinstaller --distpath dist/gc-updater.dist gc-updater.spec
-          }
-          
-          # Schließliche Überprüfung, ob der Build erfolgreich war (entweder durch Nuitka oder PyInstaller)
-          if (-not (Test-Path "dist/gc-updater.dist/gc-updater.exe")) {
-            Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller konnten den Updater erstellen!"
-            exit 1
-          } else {
-            Write-Host "Updater wurde erfolgreich kompiliert."
       
       - name: Generate SHA256 Hash
         shell: pwsh
@@ -363,6 +251,8 @@ exe = EXE(
           if (Test-Path $exePath) {
             $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
             $hash | Out-File -FilePath "dist/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
+            # Kopiere auch in den Programmordner für Konsistenz
+            $hash | Out-File -FilePath "dist/griefing_counter/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
           } else {
             Write-Error "Die Datei $exePath wurde nicht gefunden!"
             exit 1
@@ -399,17 +289,16 @@ exe = EXE(
           # Hole die Version aus dem get_version-Schritt
           $versionNum = "${{ steps.get_version.outputs.app_version }}"
           # Erstelle den ZIP-Dateinamen
-          $zipFilename = "SC-Griefing-Counter-" + $versionNum + ".zip"
+          $zipFilename = "SC-Griefing-Counter-$versionNum.zip"
           
           # Prüfe, ob das Verzeichnis existiert
           if (Test-Path "dist/griefing_counter") {
-            # Erstelle die ZIP-Datei
+            # Erstelle die ZIP-Datei - Anführungszeichen um Pfad entfernt
             Compress-Archive -Path dist/griefing_counter/* -DestinationPath $zipFilename -Force
             # Speichere den Dateinamen als Output
-            echo "zip_filename=$zipFilename" >> $env:GITHUB_OUTPUT
+            "zip_filename=$zipFilename" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } else {
             Write-Error "Das Verzeichnis dist/griefing_counter wurde nicht gefunden!"
-            exit 1
           }
       
       # GitHub Release erstellen
@@ -438,6 +327,9 @@ exe = EXE(
           # Erstelle Verzeichnis
           New-Item -ItemType Directory -Path "pages-content" -Force
           
+          # Aktuelles Datum für Release
+          $releaseDate = Get-Date -Format "yyyy-MM-dd"
+          
           # HTML-Inhalt als separate Zeilen, um YAML-Probleme zu vermeiden
           $lines = @(
             "<!DOCTYPE html>",
@@ -457,7 +349,7 @@ exe = EXE(
             "<body>",
             "    <h1>SC Griefing Counter Downloads</h1>",
             "    <p>Version: ${{ steps.get_version.outputs.app_version }}</p>",
-            "    <p>Release-Datum: $(Get-Date -Format 'yyyy-MM-dd')</p>",
+            "    <p>Release-Datum: $releaseDate</p>",
             "    <p><a href='griefing_counter.exe' class='download-button'>Download Application</a></p>",
             "    <p><a href='version.json'>Version Info</a></p>",
             "    <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>",
@@ -499,11 +391,13 @@ exe = EXE(
           git add .
           git commit -m "Update auf Version ${{ steps.get_version.outputs.app_version }}"
           
-          # Mit Fehlerbehandlung pushen
-          try {
-            git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git HEAD:gh-pages
+          # Mit Fehlerbehandlung pushen (korrigierter Token-Zugriff)
+          $token = "${{ secrets.GITHUB_TOKEN }}"
+          $repoUrl = "https://x-access-token:$token@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git"
+          git remote add origin $repoUrl
+          git push -f origin HEAD:gh-pages
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Fehler beim Pushen zu GitHub Pages. Exit-Code: $LASTEXITCODE"
+          } else {
             Write-Host "Erfolgreich auf GitHub Pages deployed!"
-          } catch {
-            Write-Error "Fehler beim Pushen zu GitHub Pages: $_"
-            exit 1
           }
