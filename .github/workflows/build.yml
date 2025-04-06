@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==7.7.4  # Neuere Version von PyArmor für bessere Stabilität mit Python 3.11
+          pip install pyarmor==6.7.0  # Zurück zur ursprünglichen Version, die besser mit Python 3.11 funktionieren könnte
           pip install pyinstaller
           pip install tzdata  # Füge tzdata-Paket hinzu
       
@@ -161,8 +161,8 @@ jobs:
           Write-Host "Führe PyArmor Obfuskation durch..."
           
           try {
-            # Obfusziere das Hauptskript und alle importierten Module
-            python -m pyarmor obfuscate --recursive --output dist/obfuscated griefing_counter_tk.py
+            # Korrekte Syntax für PyArmor 6.7.0
+            pyarmor obfuscate --recursive --output dist/obfuscated griefing_counter_tk.py
             
             # Prüfe, ob die Obfuskation erfolgreich war
             if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
