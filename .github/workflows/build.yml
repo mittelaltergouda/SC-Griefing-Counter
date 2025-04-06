@@ -333,6 +333,64 @@ jobs:
           }
           
           Write-Host "Kompilierung abgeschlossen."
+          
+      - name: Compile Updater Program
+        run: |
+          Write-Host "Kompiliere Update-Tool..."
+          
+          # Kopiere die Updater-Datei ins obfuscated-Verzeichnis, falls noch nicht dort
+          if (-not (Test-Path "dist/obfuscated/gc-updater.py")) {
+            Copy-Item "gc-updater.py" -Destination "dist/obfuscated/" -Force
+          }
+          
+          # Kompiliere den Updater mit Nuitka
+          $updaterNuitkaCmd = "python -m nuitka --assume-yes-for-downloads --standalone --mingw64 --windows-disable-console --remove-output --output-dir=dist dist/obfuscated/gc-updater.py"
+          $updaterSuccess = $false
+          
+          try {
+            # Führe Nuitka mit Timeout von 5 Minuten aus (Updater ist kleiner)
+            $updaterProcess = Start-Process -FilePath "powershell" -ArgumentList "-Command", $updaterNuitkaCmd -PassThru -NoNewWindow
+            $updaterProcess | Wait-Process -Timeout 300 -ErrorAction SilentlyContinue
+            
+            if ($updaterProcess.ExitCode -eq 0) {
+              Write-Host "Updater-Kompilierung mit Nuitka erfolgreich abgeschlossen."
+              $updaterSuccess = $true
+              
+              # Benenne ggf. das Verzeichnis um
+              if (Test-Path "dist/gc-updater.dist") {
+                # Kopiere die ausführbare Datei in das griefing_counter-Verzeichnis
+                if (Test-Path "dist/gc-updater.dist/gc-updater.exe") {
+                  Copy-Item "dist/gc-updater.dist/gc-updater.exe" -Destination "dist/griefing_counter/" -Force
+                  Write-Host "Updater erfolgreich in das Zielverzeichnis kopiert."
+                }
+              }
+            } else {
+              Write-Warning "Updater-Kompilierung mit Nuitka fehlgeschlagen. Versuche PyInstaller..."
+            }
+          } catch {
+            Write-Warning "Updater-Kompilierung mit Nuitka fehlgeschlagen: $_"
+          }
+          
+          # Wenn Nuitka für den Updater fehlschlägt, verwende PyInstaller
+          if (-not $updaterSuccess) {
+            $updaterPyInstallerCmd = "pyinstaller --name=gc-updater --noconfirm --windowed --distpath=dist dist/obfuscated/gc-updater.py"
+            
+            Write-Host "Führe PyInstaller für den Updater aus: $updaterPyInstallerCmd"
+            Invoke-Expression $updaterPyInstallerCmd
+            
+            # Prüfe, ob PyInstaller erfolgreich war
+            if (Test-Path "dist/gc-updater.exe") {
+              Write-Host "PyInstaller hat den Updater erfolgreich erstellt."
+              
+              # Kopiere die ausführbare Datei in das griefing_counter-Verzeichnis
+              Copy-Item "dist/gc-updater.exe" -Destination "dist/griefing_counter/" -Force
+              Write-Host "Updater erfolgreich in das Zielverzeichnis kopiert."
+            } else {
+              Write-Warning "PyInstaller konnte den Updater nicht erstellen. Der automatische Update-Mechanismus wird nicht verfügbar sein."
+            }
+          }
+          
+          Write-Host "Updater-Kompilierung abgeschlossen."
       
       - name: Generate SHA256 Hash
         shell: pwsh
