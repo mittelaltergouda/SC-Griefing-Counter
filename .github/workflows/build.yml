@@ -48,22 +48,94 @@ jobs:
           $mingwDir = "C:/mingw64bin"
           mkdir -Force $mingwDir
           
-          # MinGW64 herunterladen und extrahieren
-          $mingwUrl = "https://github.com/brechtsanders/winlibs_mingw/releases/download/12.2.0-14.0.6-10.0.0-msvcrt-r4/winlibs-x86_64-posix-seh-gcc-12.2.0-mingw-w64-10.0.0-r4.zip"
-          $mingwZip = "$mingwDir/mingw64.zip"
+          # Aktualisierte URL für MinGW64 (Stand April 2025)
+          # Alternative URLs, falls eine fehlschlägt
+          $mingwUrls = @(
+            "https://github.com/niXman/mingw-builds-binaries/releases/download/13.1.0-rt_v11-rev1/x86_64-13.1.0-release-posix-seh-ucrt-rt_v11-rev1.7z",
+            "https://github.com/brechtsanders/winlibs_mingw/releases/download/13.2.0-16.0.6-11.0.1-ucrt-r1/winlibs-x86_64-posix-seh-gcc-13.2.0-llvm-16.0.6-mingw-w64ucrt-11.0.1-r1.zip",
+            "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/13.1.0/threads-posix/seh/x86_64-13.1.0-release-posix-seh-msvcrt-rt_v11-rev0.7z/download"
+          )
           
-          Write-Host "Lade MinGW64 herunter..."
-          Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwZip
+          $success = $false
           
-          Write-Host "Extrahiere MinGW64..."
-          Expand-Archive -Path $mingwZip -DestinationPath $mingwDir -Force
+          foreach ($mingwUrl in $mingwUrls) {
+            try {
+              $mingwFile = "$mingwDir/mingw64.archive"
+              
+              Write-Host "Versuche MinGW64 von $mingwUrl herunterzuladen..."
+              Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwFile -TimeoutSec 60
+              
+              Write-Host "Installiere 7Zip für die Extraktion..."
+              # Install 7zip für die Extraktion
+              Invoke-WebRequest -Uri "https://www.7-zip.org/a/7z2301-x64.exe" -OutFile "$mingwDir/7z-installer.exe"
+              Start-Process -FilePath "$mingwDir/7z-installer.exe" -ArgumentList "/S" -Wait
+
+              # Warte kurz, damit die Installation abgeschlossen wird
+              Start-Sleep -Seconds 5
+
+              # Extrahiere das Archiv mit 7zip
+              Write-Host "Extrahiere MinGW64 mit 7zip..."
+              if ($mingwFile.EndsWith(".7z")) {
+                & "C:\Program Files\7-Zip\7z.exe" x "$mingwFile" -o"$mingwDir" -y
+              } else {
+                & "C:\Program Files\7-Zip\7z.exe" x "$mingwFile" -o"$mingwDir" -y
+              }
+              
+              # Finde den Pfad zum mingw64/bin Verzeichnis
+              $mingwBinDir = Get-ChildItem -Path $mingwDir -Recurse -Directory | 
+                             Where-Object { $_.Name -eq "bin" -and $_.FullName -like "*mingw64*" } | 
+                             Select-Object -First 1 -ExpandProperty FullName
+              
+              if ($mingwBinDir) {
+                Write-Host "MinGW64 bin Verzeichnis gefunden: $mingwBinDir"
+                $env:PATH = "$mingwBinDir;$env:PATH"
+                $success = $true
+                break
+              } else {
+                Write-Warning "Konnte das mingw64/bin Verzeichnis nicht finden."
+              }
+            } catch {
+              Write-Warning "Fehler beim Herunterladen oder Extrahieren von $mingwUrl : $_"
+              # Mache mit dem nächsten Versuch weiter
+            }
+          }
           
-          # Füge den Pfad zur PATH-Umgebungsvariable hinzu
-          $env:PATH = "$mingwDir\mingw64\bin;$env:PATH"
+          # Fallback: Versuche TDM-GCC zu installieren, wenn alles andere fehlschlägt
+          if (-not $success) {
+            try {
+              Write-Host "Versuche TDM-GCC als Fallback zu installieren..."
+              $tdmUrl = "https://github.com/jmeubank/tdm-gcc/releases/download/v10.3.0-tdm64-2/tdm64-gcc-10.3.0-2.exe"
+              $tdmInstaller = "$mingwDir/tdm-gcc-installer.exe"
+              
+              Invoke-WebRequest -Uri $tdmUrl -OutFile $tdmInstaller
+              Start-Process -FilePath $tdmInstaller -ArgumentList "/S" -Wait
+              
+              # TDM-GCC installiert standardmäßig nach C:\TDM-GCC-64\bin
+              if (Test-Path "C:\TDM-GCC-64\bin") {
+                $env:PATH = "C:\TDM-GCC-64\bin;$env:PATH"
+                $success = $true
+              }
+            } catch {
+              Write-Warning "Fehler bei der TDM-GCC Installation: $_"
+            }
+          }
           
-          # Verifiziere die Installation
-          Write-Host "Verifiziere gcc..."
-          gcc --version
+          # Auch wenn MinGW nicht installiert werden konnte, versuche mit vorinstalliertem gcc zu arbeiten
+          try {
+            Write-Host "Verifiziere gcc..."
+            gcc --version
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "GCC ist verfügbar."
+              $success = $true
+            }
+          } catch {
+            Write-Warning "GCC ist nicht über die Kommandozeile verfügbar: $_"
+          }
+          
+          if (-not $success) {
+            Write-Warning "Konnte keinen C-Compiler installieren. Nuitka wird möglicherweise fehlschlagen."
+            # Wir brechen nicht ab, da PyInstaller als Fallback verwendet werden kann
+          }
       
       - name: Extract Version from Tag
         id: get_version
