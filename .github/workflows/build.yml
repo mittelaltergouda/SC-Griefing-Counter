@@ -35,10 +35,11 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install nuitka requests packaging
+          pip install nuitka==1.9.5  # Aktuelle stabile Version von Nuitka (Stand: April 2025)
+          pip install requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==9.0.8  # Installiert die neueste PyArmor 9.x Version
-          pip install pyinstaller
+          pip install pyarmor==9.0.8  # Aktuelle stabile Version von PyArmor (Stand: April 2025)
+          pip install pyinstaller==6.3.0  # Aktuelle stabile Version von PyInstaller (Stand: April 2025)
           pip install tzdata  # Füge tzdata-Paket hinzu
       
       - name: Install Pre-requisites for Nuitka
