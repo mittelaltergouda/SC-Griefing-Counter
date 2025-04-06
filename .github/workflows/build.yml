@@ -160,52 +160,83 @@ jobs:
           # Wende PyArmor für Code-Obfuskation an
           Write-Host "Führe PyArmor Obfuskation durch..."
           
+          # Kopiere zunächst alle Python-Dateien in das obfuscated-Verzeichnis
+          Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
+          
+          # Flag für erfolgreiche Obfuskation
+          $obfuscationSuccess = $false
+          
           try {
-            # Kopiere zuerst alle Python-Dateien in das obfuscated-Verzeichnis
-            Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
+            # Versuche, die Hauptdatei zu obfuskieren (ohne rekursive Verarbeitung)
+            # Arbeite direkt im Hauptverzeichnis und passe Pfade explizit an
+            pyarmor obfuscate --output dist/obfuscated/obfuscated griefing_counter_tk.py
             
-            # Versuche PyArmor auf jede einzelne Datei separat anzuwenden, um Fehler zu isolieren
-            # Beginne mit der Hauptdatei
-            cd dist/obfuscated
-            pyarmor obfuscate griefing_counter_tk.py
-            
-            # Prüfe, ob die Obfuskation der Hauptdatei erfolgreich war
-            if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-              Write-Host "PyArmor Obfuskation der Hauptdatei erfolgreich abgeschlossen."
+            # Prüfe, ob die Hauptdatei erfolgreich obfuskiert wurde
+            if (Test-Path "dist/obfuscated/obfuscated/griefing_counter_tk.py") {
+              Write-Host "PyArmor Obfuskation der Hauptdatei erfolgreich!"
               
-              # Kopiere die obfuszierten Dateien zurück
-              Copy-Item -Path "dist/obfuscated/*" -Destination "." -Force -Recurse
+              # Kopiere die obfuszierten Dateien zurück ins obfuscated-Verzeichnis
+              Copy-Item -Path "dist/obfuscated/obfuscated/*" -Destination "dist/obfuscated/" -Force -Recurse
               
-              # Versuche noch einige wichtige Module zu obfuskieren
-              $modulesToObfuscate = @("database.py", "gui.py", "update_checker.py", "watchdog_handler.py")
-              foreach ($module in $modulesToObfuscate) {
-                if (Test-Path $module) {
-                  try {
-                    pyarmor obfuscate $module
-                    Write-Host "Erfolgreich obfuskiert: $module"
-                  } catch {
-                    Write-Warning "Konnte $module nicht obfuskieren: $_"
-                  }
-                }
-              }
+              # Lösche das temporäre Verzeichnis
+              Remove-Item -Path "dist/obfuscated/obfuscated" -Recurse -Force -ErrorAction SilentlyContinue
+              
+              $obfuscationSuccess = $true
             } else {
-              Write-Warning "Obfuskation der Hauptdatei fehlgeschlagen, verwende Original-Dateien."
+              Write-Warning "PyArmor konnte die Hauptdatei nicht obfuskieren"
             }
-            
-            # Zurück zum Hauptverzeichnis
-            cd ../..
-            
-            "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } catch {
-            Write-Warning "PyArmor Obfuskation fehlgeschlagen: $_"
-            Write-Host "Verwende Fallback-Methode..."
-            
-            # Kopiere alle Python-Dateien direkt als Fallback (falls noch nicht geschehen)
-            Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
-            "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Warning "Fehler bei der Obfuskation der Hauptdatei: $_"
           }
           
+          # Wenn die Hauptdatei-Obfuskation fehlgeschlagen ist, ignoriere den config.py-Fehler und versuche andere Dateien
+          if (-not $obfuscationSuccess) {
+            Write-Host "Versuche einzelne Dateien zu obfuskieren und überspringe config.py..."
+            
+            $filesToObfuscate = @(
+              "griefing_counter_tk.py",
+              "database.py",
+              "gui.py", 
+              "update_checker.py", 
+              "npc_handler.py", 
+              "log_processor.py", 
+              "logger.py", 
+              "stats.py", 
+              "ui_constants.py", 
+              "watchdog_handler.py"
+            )
+            
+            foreach ($file in $filesToObfuscate) {
+              # Überspringe config.py, da es bekanntermaßen Probleme verursacht
+              if ($file -eq "config.py") { continue }
+              
+              if (Test-Path $file) {
+                try {
+                  # Versuche, die einzelne Datei zu obfuskieren
+                  pyarmor obfuscate --output dist/obfuscated/temp $file
+                  
+                  # Wenn erfolgreich, kopiere die obfuskierte Datei
+                  if (Test-Path "dist/obfuscated/temp/$file") {
+                    Copy-Item -Path "dist/obfuscated/temp/$file" -Destination "dist/obfuscated/" -Force
+                    Copy-Item -Path "dist/obfuscated/temp/pytransform" -Destination "dist/obfuscated/" -Force -Recurse -ErrorAction SilentlyContinue
+                    Write-Host "Erfolgreich obfuskiert: $file"
+                  }
+                } catch {
+                  Write-Warning "Konnte $file nicht obfuskieren: $_"
+                } finally {
+                  # Lösche das temporäre Verzeichnis
+                  Remove-Item -Path "dist/obfuscated/temp" -Recurse -Force -ErrorAction SilentlyContinue
+                }
+              }
+            }
+          }
+          
+          # Bestätige, dass obfuscated-Verzeichnis die benötigten Dateien enthält
+          Write-Host "Überprüfe, ob die benötigten Dateien im obfuscated-Verzeichnis vorhanden sind..."
+          Get-ChildItem -Path "dist/obfuscated" | ForEach-Object { Write-Host "Datei vorhanden: $_" }
+          
           # Setze Output-Variable für den nächsten Schritt
+          "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Python-Dateien für die Kompilierung vorbereitet."
       
       - name: Compile Main Program with Nuitka
