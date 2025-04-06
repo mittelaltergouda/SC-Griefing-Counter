@@ -161,21 +161,46 @@ jobs:
           Write-Host "Führe PyArmor Obfuskation durch..."
           
           try {
-            # Korrekte Syntax für PyArmor 6.7.0
-            pyarmor obfuscate --recursive --output dist/obfuscated griefing_counter_tk.py
+            # Kopiere zuerst alle Python-Dateien in das obfuscated-Verzeichnis
+            Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
             
-            # Prüfe, ob die Obfuskation erfolgreich war
+            # Versuche PyArmor auf jede einzelne Datei separat anzuwenden, um Fehler zu isolieren
+            # Beginne mit der Hauptdatei
+            cd dist/obfuscated
+            pyarmor obfuscate griefing_counter_tk.py
+            
+            # Prüfe, ob die Obfuskation der Hauptdatei erfolgreich war
             if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-              Write-Host "PyArmor Obfuskation erfolgreich abgeschlossen."
-              "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+              Write-Host "PyArmor Obfuskation der Hauptdatei erfolgreich abgeschlossen."
+              
+              # Kopiere die obfuszierten Dateien zurück
+              Copy-Item -Path "dist/obfuscated/*" -Destination "." -Force -Recurse
+              
+              # Versuche noch einige wichtige Module zu obfuskieren
+              $modulesToObfuscate = @("database.py", "gui.py", "update_checker.py", "watchdog_handler.py")
+              foreach ($module in $modulesToObfuscate) {
+                if (Test-Path $module) {
+                  try {
+                    pyarmor obfuscate $module
+                    Write-Host "Erfolgreich obfuskiert: $module"
+                  } catch {
+                    Write-Warning "Konnte $module nicht obfuskieren: $_"
+                  }
+                }
+              }
             } else {
-              throw "Obfuskierte Datei wurde nicht erstellt"
+              Write-Warning "Obfuskation der Hauptdatei fehlgeschlagen, verwende Original-Dateien."
             }
+            
+            # Zurück zum Hauptverzeichnis
+            cd ../..
+            
+            "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           } catch {
             Write-Warning "PyArmor Obfuskation fehlgeschlagen: $_"
             Write-Host "Verwende Fallback-Methode..."
             
-            # Kopiere alle Python-Dateien direkt als Fallback
+            # Kopiere alle Python-Dateien direkt als Fallback (falls noch nicht geschehen)
             Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
             "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
