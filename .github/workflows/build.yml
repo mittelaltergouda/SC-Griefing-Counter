@@ -168,9 +168,9 @@ jobs:
           $obfuscationSuccess = $false
           
           try {
-            # Versuche, mit PyArmor 7.7.4 ohne Ausschluss von config.py zu obfuskieren
-            # Verwende nur --no-cross-protection für bessere Kompatibilität
-            pyarmor obfuscate --no-cross-protection --output dist/obfuscated/obfuscated griefing_counter_tk.py
+            # Verwende die neue PyArmor 9.x Befehlsstruktur
+            # Der 'gen' Befehl ersetzt das alte 'obfuscate'
+            pyarmor gen --output dist/obfuscated/obfuscated dist/obfuscated/griefing_counter_tk.py
             
             # Prüfe, ob die Hauptdatei erfolgreich obfuskiert wurde
             if (Test-Path "dist/obfuscated/obfuscated/griefing_counter_tk.py") {
@@ -209,8 +209,8 @@ jobs:
             foreach ($file in $filesToObfuscate) {
               if (Test-Path $file) {
                 try {
-                  # Versuche die einzelne Datei mit reduzierten Optionen zu obfuskieren
-                  pyarmor obfuscate --no-cross-protection --restrict=0 --output dist/obfuscated/temp $file
+                  # Verwende die neue PyArmor 9.x Befehlsstruktur für einzelne Dateien
+                  pyarmor gen --output dist/obfuscated/temp $file
                   
                   # Wenn erfolgreich, kopiere die obfuskierte Datei
                   if (Test-Path "dist/obfuscated/temp/$file") {
