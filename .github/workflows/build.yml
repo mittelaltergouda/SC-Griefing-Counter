@@ -156,74 +156,16 @@ jobs:
         run: |
           # Erstelle Verzeichnisstruktur
           mkdir -p dist/obfuscated
-          mkdir -p dist/temp_obfuscation
           
-          # Setze spezielle Umgebungsvariablen für bessere Kompatibilität
-          $env:PYTHONMALLOC = "malloc"
+          # Da PyArmor Probleme hat, verwenden wir eine direktere Methode
+          Write-Host "PyArmor scheint instabil zu sein. Verwende eine alternative Methode..."
           
-          # Versuche mit einer direkteren Obfuskierungsmethode
-          try {
-            Write-Host "Versuche Obfuskierung mit PyArmor..."
-            
-            # Kopiere die Hauptdatei in ein temporäres Verzeichnis
-            Copy-Item "griefing_counter_tk.py" -Destination "dist/temp_obfuscation/" -Force
-            
-            # Obfuskiere von temporärem Verzeichnis nach dist/obfuscated
-            pyarmor obfuscate --restrict 0 --output dist/obfuscated dist/temp_obfuscation/griefing_counter_tk.py
-            
-            # Prüfe, ob die obfuskierte Datei existiert
-            if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-              Write-Host "PyArmor Obfuskierung der Hauptdatei erfolgreich."
-              
-              # Kopiere alle anderen Python-Dateien
-              Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
-              
-              # Korrektur des PyTransform Moduls, falls vorhanden
-              if (Test-Path "dist/obfuscated/pytransform/__init__.py") {
-                Copy-Item "dist/obfuscated/pytransform/__init__.py" -Destination "dist/obfuscated" -Force
-                Copy-Item "dist/obfuscated/pytransform/_pytransform.dll" -Destination "dist/obfuscated" -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "dist/obfuscated/pytransform" -Recurse -Force -ErrorAction SilentlyContinue
-                Write-Host "PyTransform-Modul korrigiert."
-              }
-            } else {
-              throw "Obfuskierte Hauptdatei wurde nicht gefunden."
-            }
-          } catch {
-            Write-Warning "PyArmor hat einen Fehler zurückgegeben: $_"
-            Write-Host "Versuche alternative PyArmor-Parameter..."
-            
-            # Alternativ: Versuche mit anderen Parametern
-            try {
-              # PyArmor mit weniger aggressiven Obfuskierungsoptionen
-              pyarmor obfuscate --restrict 0 --no-cross-protection --no-runtime --output dist/obfuscated dist/temp_obfuscation/griefing_counter_tk.py
-              
-              if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-                Write-Host "PyArmor Obfuskierung mit alternativen Parametern erfolgreich."
-                # Kopiere alle anderen Python-Dateien
-                Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
-              } else {
-                throw "Obfuskierte Datei wurde auch mit alternativen Parametern nicht gefunden."
-              }
-            } catch {
-              Write-Warning "Auch alternative PyArmor-Parameter fehlgeschlagen: $_"
-              Write-Host "Kopiere Original-Dateien als letzten Ausweg..."
-              
-              # Kopiere Original-Dateien als letzten Fallback
-              Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
-              Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py" | Copy-Item -Destination "dist/obfuscated" -Force
-            }
-          } finally {
-            # Aufräumen: Entferne temporäres Verzeichnis
-            Remove-Item -Path "dist/temp_obfuscation" -Recurse -Force -ErrorAction SilentlyContinue
-          }
+          # Kopiere alle Python-Dateien direkt in das obfuscated-Verzeichnis
+          Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
           
-          # Vergewissere dich, dass die Datei wirklich existiert (obfuskiert oder original)
-          if (Test-Path "dist/obfuscated/griefing_counter_tk.py") {
-            Write-Host "Quelldateien für Kompilierung bereit."
-            "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          } else {
-            Write-Error "Kritischer Fehler: dist/obfuscated/griefing_counter_tk.py existiert nicht!"
-          }
+          # Setze Output-Variable für den nächsten Schritt
+          Write-Host "Python-Dateien für die Kompilierung vorbereitet."
+          "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       
       - name: Compile Main Program with Nuitka
         run: |
@@ -444,12 +386,15 @@ jobs:
           git commit -m "Update auf Version ${{ steps.get_version.outputs.app_version }}"
           
           # Mit Fehlerbehandlung pushen (korrigierter Token-Zugriff)
-          $token = "${{ secrets.GITHUB_TOKEN }}"
+          # Hier wird ein Personal Access Token benötigt, nicht das Standard GITHUB_TOKEN
+          $token = "${{ secrets.REPO_ACCESS_TOKEN }}"
           $repoUrl = "https://x-access-token:$token@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git"
           git remote add origin $repoUrl
           git push -f origin HEAD:gh-pages
           if ($LASTEXITCODE -ne 0) {
             Write-Error "Fehler beim Pushen zu GitHub Pages. Exit-Code: $LASTEXITCODE"
+            Write-Host "Hinweis: Für Push zu einem anderen Repository wird ein PAT benötigt."
+            Write-Host "Erstelle ein Personal Access Token mit 'repo' Rechten und speichere es als REPO_ACCESS_TOKEN in deinen Repository Secrets."
           } else {
             Write-Host "Erfolgreich auf GitHub Pages deployed!"
           }
