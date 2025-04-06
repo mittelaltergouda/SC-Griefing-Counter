@@ -12,10 +12,12 @@ GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
 # Debug-Log-Ordner hinzufügen
 DEBUG_LOG_FOLDER = os.path.join(LOG_FOLDER, "debug")
 
-# Ensure directories exist
-os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
-os.makedirs(GENERAL_LOG_FOLDER, exist_ok=True)
-os.makedirs(DEBUG_LOG_FOLDER, exist_ok=True)
+# Verschoben in eine Funktion, um PyArmor-Kompatibilität zu verbessern
+def ensure_directories_exist():
+    """Stellt sicher, dass alle benötigten Verzeichnisse existieren."""
+    os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
+    os.makedirs(GENERAL_LOG_FOLDER, exist_ok=True)
+    os.makedirs(DEBUG_LOG_FOLDER, exist_ok=True)
 
 # Where we store the player's config
 CONFIG_FILE = "config.txt"
@@ -38,6 +40,10 @@ NPC_CATEGORIES = [
 def load_config():
     """Loads the configuration file and sets global variables."""
     global CURRENT_PLAYER_NAME, LOGGING_ENABLED, LOGGING_LEVEL, REFRESH_INTERVAL
+    
+    # Stelle zuerst sicher, dass die benötigten Verzeichnisse existieren
+    ensure_directories_exist()
+    
     if os.path.exists(CONFIG_FILE):
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             for line in f:
@@ -60,6 +66,9 @@ def load_config():
 
 def save_config():
     """Saves the current config settings to a file with comments for better user understanding."""
+    # Stelle sicher, dass Verzeichnisse existieren
+    ensure_directories_exist()
+    
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         f.write("# Spielername des aktuellen Benutzers\n")
         f.write(f"PLAYER_NAME={CURRENT_PLAYER_NAME}\n\n")
@@ -80,8 +89,18 @@ def get_db_name():
     """
     if not CURRENT_PLAYER_NAME:
         return None
+    
+    # Stelle sicher, dass das Datenbankverzeichnis existiert
     os.makedirs(DB_FOLDER, exist_ok=True)
     return os.path.join(DB_FOLDER, f"star_citizen_kills_{CURRENT_PLAYER_NAME}.db")
 
-# Load config at startup
-load_config()
+# Load config nur wenn wir nicht in einem Obfuskationsprozess sind
+# PyArmor kann dies beim Import ausführen, was zu Fehlern führen kann
+try:
+    # Eine einfache Möglichkeit zu erkennen, ob wir in PyArmor laufen
+    import inspect
+    if not inspect.currentframe().f_back or 'pyarmor' not in inspect.currentframe().f_back.f_globals.get('__file__', ''):
+        load_config()
+except Exception:
+    # Wenn es Probleme gibt, versuchen wir es im Hauptprogramm später nochmal
+    pass
