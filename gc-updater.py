@@ -14,19 +14,39 @@ import subprocess
 import json
 import time
 import logging
+import traceback
+import ctypes
+from datetime import datetime
 
 # Einfaches Logging einrichten
+log_dir = "Logs/updater"
+os.makedirs(log_dir, exist_ok=True)
+log_file = os.path.join(log_dir, f"updater_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()]
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger("GC-Updater")
 
 # Der GitHub-Username und Repo-Name sollten in einer Konfigurationsdatei gespeichert
 # oder zur Laufzeit durch GitHub Actions gesetzt werden
-GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER', '')
+GITHUB_REPO_OWNER = "Eras308"  # Fester Fallback-Wert
+if os.environ.get('GITHUB_REPOSITORY_OWNER'):
+    GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER')
+    
 GITHUB_REPO_NAME = "SC-Griefing-Counter-Releases"
+
+def is_admin():
+    """Prüft, ob das Programm mit Administratorrechten läuft"""
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except:
+        return False
 
 def get_sha256(file_path):
     """Berechnet den SHA256-Hash einer Datei"""
@@ -39,104 +59,276 @@ def get_sha256(file_path):
 def download_file(url, local_path):
     """Lädt eine Datei von einer URL herunter"""
     try:
-        response = requests.get(url, stream=True)
+        logger.info(f"Versuche Download von: {url}")
+        response = requests.get(url, stream=True, timeout=30)
         response.raise_for_status()
         with open(local_path, 'wb') as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
+        logger.info(f"Download erfolgreich: {local_path}")
         return True
     except Exception as e:
         logger.error(f"Fehler beim Herunterladen: {str(e)}")
         return False
 
-def main():
-    logger.info("Star Citizen Griefing Counter Updater startet...")
+def check_exe_integrity(exe_path):
+    """Überprüft, ob die ausführbare Datei gültig ist"""
+    if not os.path.exists(exe_path):
+        logger.error(f"Datei existiert nicht: {exe_path}")
+        return False
     
-    # URL zur Version und zum Download
-    if not GITHUB_REPO_OWNER:
-        logger.error("GitHub Repository Owner nicht verfügbar. Update wird abgebrochen.")
-        input("Drücken Sie Enter, um den Updater zu beenden...")
-        return
-        
-    version_url = f"https://{GITHUB_REPO_OWNER}.github.io/{GITHUB_REPO_NAME}/version.json"
+    if os.path.getsize(exe_path) < 1000:  # Minimale Größe für eine gültige EXE
+        logger.error(f"Datei ist zu klein: {os.path.getsize(exe_path)} Bytes")
+        return False
     
-    # Temporäres Verzeichnis
-    temp_dir = "update_temp"
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-    
-    # Version-Info herunterladen
+    # Versuche, die Datei zu öffnen (prüft auf Beschädigung)
     try:
-        response = requests.get(version_url)
-        response.raise_for_status()
-        version_info = response.json()
+        with open(exe_path, 'rb') as f:
+            header = f.read(2)
+            if header != b'MZ':  # DOS MZ header für ausführbare Dateien
+                logger.error("Datei hat keinen gültigen EXE-Header")
+                return False
+    except Exception as e:
+        logger.error(f"Fehler beim Lesen der Datei: {str(e)}")
+        return False
+    
+    return True
+
+def test_run_exe(exe_path):
+    """Führt die EXE im Testmodus aus"""
+    try:
+        logger.info(f"Führe Test-Ausführung durch: {exe_path}")
+        # Mit --version oder einem ähnlichen Parameter, der schnell zurückkehrt
+        result = subprocess.run([exe_path, "--version"], 
+                               capture_output=True, 
+                               text=True, 
+                               timeout=5)
+        logger.info(f"Test-Ausführung Rückgabecode: {result.returncode}")
+        logger.info(f"Ausgabe: {result.stdout}")
+        if result.stderr:
+            logger.warning(f"Fehlerausgabe: {result.stderr}")
+        return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        logger.warning("Test-Ausführung Timeout - möglicherweise normal für GUI-Anwendung")
+        return True  # Wir nehmen an, dass es funktioniert, wenn es nicht sofort zurückkehrt
+    except Exception as e:
+        logger.error(f"Fehler bei der Test-Ausführung: {str(e)}")
+        return False
+
+def extract_fallback_zip(zip_url, extract_dir):
+    """Lädt die Zip-Datei herunter und extrahiert sie als Fallback"""
+    try:
+        import zipfile
         
-        latest_version = version_info["latest_version"]
-        download_url = version_info["download_url"]
-        hash_url = f"{download_url}.sha256"
+        # Temporärer Dateiname für die Zip-Datei
+        temp_zip = os.path.join(extract_dir, "temp_package.zip")
         
-        logger.info(f"Neueste Version: {latest_version}")
+        # Zip-Datei herunterladen
+        logger.info(f"Lade Fallback-Zip herunter: {zip_url}")
+        if not download_file(zip_url, temp_zip):
+            return False
         
-        # Dateien herunterladen
-        exe_local_path = os.path.join(temp_dir, "griefing_counter.exe")
-        hash_local_path = os.path.join(temp_dir, "griefing_counter.exe.sha256")
-        
-        logger.info("Lade neue Version herunter...")
-        if not download_file(download_url, exe_local_path):
-            raise Exception("Download der EXE fehlgeschlagen!")
-        
-        logger.info("Lade Hash-Datei herunter...")
-        if not download_file(hash_url, hash_local_path):
-            raise Exception("Download der Hash-Datei fehlgeschlagen!")
-        
-        # Hash überprüfen
-        with open(hash_local_path, 'r') as f:
-            expected_hash = f.read().strip()
-        
-        actual_hash = get_sha256(exe_local_path)
-        
-        if actual_hash != expected_hash:
-            raise Exception("SHA256-Hash stimmt nicht überein! Mögliche Manipulation der Datei.")
-        
-        logger.info("Hash erfolgreich verifiziert.")
-        
-        # Aktuelle EXE ermitteln
-        current_exe = sys.executable
-        if os.path.basename(current_exe) == "gc-updater.exe":
-            main_exe = os.path.join(os.path.dirname(current_exe), "griefing_counter.exe")
-        else:
-            main_exe = current_exe
-        
-        # Bei Bedarf Programm beenden
-        if os.path.exists(main_exe) and os.path.basename(main_exe) != "gc-updater.exe":
-            try:
-                for proc in os.popen('tasklist').readlines():
-                    if "griefing_counter.exe" in proc.lower():
-                        logger.info("Beende laufende Instanz...")
-                        os.system('taskkill /f /im griefing_counter.exe')
-                        time.sleep(2)
-                        break
-            except:
-                logger.warning("Konnte laufende Instanz nicht automatisch beenden.")
-                print("Bitte schließen Sie die Anwendung manuell und drücken Sie Enter...")
-                input()
-        
-        # Datei ersetzen
-        logger.info("Ersetze alte Version...")
-        shutil.copy2(exe_local_path, main_exe)
+        # Zip-Datei extrahieren
+        logger.info(f"Extrahiere Zip nach: {extract_dir}")
+        with zipfile.ZipFile(temp_zip, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
         
         # Aufräumen
-        shutil.rmtree(temp_dir)
+        os.remove(temp_zip)
         
-        logger.info("Update erfolgreich abgeschlossen!")
-        logger.info("Starte Griefing Counter...")
+        return True
+    except Exception as e:
+        logger.error(f"Fehler beim Extrahieren der Zip-Datei: {str(e)}")
+        return False
+
+def main():
+    try:
+        logger.info("Star Citizen Griefing Counter Updater startet...")
+        logger.info(f"Ausgeführt von: {sys.executable}")
+        logger.info(f"Arbeitsverzeichnis: {os.getcwd()}")
+        logger.info(f"Administratorrechte: {'Ja' if is_admin() else 'Nein'}")
         
-        # Starte die aktualisierte Anwendung
-        subprocess.Popen([main_exe])
+        # URL zur Version und zum Download
+        if not GITHUB_REPO_OWNER:
+            logger.error("GitHub Repository Owner nicht verfügbar. Update wird abgebrochen.")
+            input("Drücken Sie Enter, um den Updater zu beenden...")
+            return
+            
+        version_url = f"https://{GITHUB_REPO_OWNER}.github.io/{GITHUB_REPO_NAME}/version.json"
+        logger.info(f"Version URL: {version_url}")
+        
+        # Temporäres Verzeichnis
+        temp_dir = "update_temp"
+        if os.path.exists(temp_dir):
+            logger.info(f"Lösche vorhandenes temporäres Verzeichnis: {temp_dir}")
+            shutil.rmtree(temp_dir)
+        
+        logger.info(f"Erstelle temporäres Verzeichnis: {temp_dir}")
+        os.makedirs(temp_dir)
+        
+        # Version-Info herunterladen
+        try:
+            logger.info("Lade Versions-Info...")
+            response = requests.get(version_url, timeout=10)
+            response.raise_for_status()
+            version_info = response.json()
+            
+            latest_version = version_info["latest_version"]
+            download_url = version_info["download_url"]
+            hash_url = f"{download_url}.sha256"
+            
+            # Für Fallback-Methode
+            base_url = version_url.rsplit('/', 1)[0]
+            zip_url = f"{base_url}/SC-Griefing-Counter-{latest_version}.zip"
+            
+            logger.info(f"Neueste Version: {latest_version}")
+            logger.info(f"Download URL: {download_url}")
+            logger.info(f"Hash URL: {hash_url}")
+            logger.info(f"Zip URL (Fallback): {zip_url}")
+            
+            # Dateien herunterladen
+            exe_local_path = os.path.join(temp_dir, "griefing_counter.exe")
+            hash_local_path = os.path.join(temp_dir, "griefing_counter.exe.sha256")
+            
+            logger.info("Lade neue Version herunter...")
+            if not download_file(download_url, exe_local_path):
+                raise Exception("Download der EXE fehlgeschlagen!")
+            
+            logger.info("Lade Hash-Datei herunter...")
+            if not download_file(hash_url, hash_local_path):
+                raise Exception("Download der Hash-Datei fehlgeschlagen!")
+            
+            # Hash überprüfen
+            logger.info("Überprüfe Hash...")
+            with open(hash_local_path, 'r') as f:
+                expected_hash = f.read().strip()
+            
+            actual_hash = get_sha256(exe_local_path)
+            logger.info(f"Erwarteter Hash: {expected_hash}")
+            logger.info(f"Tatsächlicher Hash: {actual_hash}")
+            
+            if actual_hash != expected_hash:
+                raise Exception("SHA256-Hash stimmt nicht überein! Mögliche Manipulation der Datei.")
+            
+            logger.info("Hash erfolgreich verifiziert.")
+            
+            # Überprüfe die Integrität der EXE
+            if not check_exe_integrity(exe_local_path):
+                logger.warning("Die heruntergeladene EXE könnte ungültig sein. Versuche Fallback mit ZIP...")
+                # Versuche, die ZIP-Datei als Fallback zu verwenden
+                if extract_fallback_zip(zip_url, temp_dir):
+                    # Suche nach der EXE in den entpackten Dateien
+                    extracted_exe = None
+                    for root, dirs, files in os.walk(temp_dir):
+                        for file in files:
+                            if file.lower() == "griefing_counter.exe":
+                                extracted_exe = os.path.join(root, file)
+                                break
+                    
+                    if extracted_exe:
+                        logger.info(f"Gefunden: {extracted_exe}")
+                        exe_local_path = extracted_exe
+                    else:
+                        raise Exception("Konnte keine gültige EXE in der ZIP-Datei finden")
+                else:
+                    raise Exception("Fallback-Extraktion der ZIP-Datei fehlgeschlagen")
+            
+            # Führe einen Test der EXE durch
+            test_run_exe(exe_local_path)
+            
+            # Aktuelle EXE ermitteln
+            current_exe = sys.executable
+            if os.path.basename(current_exe).lower() == "gc-updater.exe":
+                main_exe = os.path.join(os.path.dirname(current_exe), "griefing_counter.exe")
+            else:
+                main_exe = current_exe
+            
+            logger.info(f"Aktuelle EXE: {main_exe}")
+            
+            # Bei Bedarf Programm beenden
+            if os.path.exists(main_exe) and os.path.basename(main_exe).lower() != "gc-updater.exe":
+                try:
+                    logger.info("Suche nach laufenden Instanzen...")
+                    found_process = False
+                    for proc in os.popen('tasklist').readlines():
+                        if "griefing_counter.exe" in proc.lower():
+                            logger.info("Beende laufende Instanz...")
+                            os.system('taskkill /f /im griefing_counter.exe')
+                            found_process = True
+                            time.sleep(2)
+                            break
+                    
+                    if not found_process:
+                        logger.info("Keine laufende Instanz gefunden.")
+                except Exception as e:
+                    logger.warning(f"Konnte laufende Instanz nicht automatisch beenden: {str(e)}")
+                    print("Bitte schließen Sie die Anwendung manuell und drücken Sie Enter...")
+                    input()
+            
+            # Datei ersetzen
+            logger.info(f"Ersetze alte Version: {main_exe}")
+            
+            try:
+                # Sicherungskopie erstellen
+                if os.path.exists(main_exe):
+                    backup_path = f"{main_exe}.bak"
+                    logger.info(f"Erstelle Sicherungskopie: {backup_path}")
+                    shutil.copy2(main_exe, backup_path)
+                
+                # Kopieren mit erhöhten Rechten wenn nötig
+                shutil.copy2(exe_local_path, main_exe)
+                logger.info("Datei erfolgreich ersetzt.")
+            except Exception as e:
+                logger.error(f"Fehler beim Ersetzen der Datei: {str(e)}")
+                if not is_admin():
+                    logger.warning("Versuche mit Administrator-Rechten neu zu starten...")
+                    
+                    # Versuche, mit Admin-Rechten neu zu starten
+                    if os.name == 'nt':  # Windows
+                        try:
+                            ctypes.windll.shell32.ShellExecuteW(
+                                None, "runas", sys.executable, " ".join(sys.argv), None, 1
+                            )
+                            sys.exit(0)
+                        except Exception as e:
+                            logger.error(f"Konnte nicht mit Admin-Rechten neu starten: {str(e)}")
+                    
+                    print("Bitte führen Sie den Updater mit Administrator-Rechten aus.")
+                    input("Drücken Sie Enter, um fortzufahren...")
+                    return
+            
+            # Aufräumen
+            logger.info(f"Räume temporäres Verzeichnis auf: {temp_dir}")
+            shutil.rmtree(temp_dir)
+            
+            logger.info("Update erfolgreich abgeschlossen!")
+            logger.info("Starte Griefing Counter...")
+            
+            # Starte die aktualisierte Anwendung
+            try:
+                subprocess.Popen([main_exe])
+                logger.info("Anwendung gestartet.")
+            except Exception as e:
+                logger.error(f"Fehler beim Starten der Anwendung: {str(e)}")
+                print(f"Fehler beim Starten der Anwendung. Details in der Log-Datei: {log_file}")
+            
+        except Exception as e:
+            logger.error(f"Fehler beim Update: {str(e)}")
+            logger.error(traceback.format_exc())
+            print(f"Ein Fehler ist aufgetreten. Details in der Log-Datei: {log_file}")
         
     except Exception as e:
-        logger.error(f"Fehler beim Update: {str(e)}")
+        # Globaler Ausnahmefehler
+        print(f"Kritischer Fehler: {str(e)}")
+        if 'logger' in locals():
+            logger.critical(f"Kritischer Fehler: {str(e)}")
+            logger.critical(traceback.format_exc())
+        else:
+            with open("updater_critical_error.log", "w") as f:
+                f.write(f"Kritischer Fehler: {str(e)}\n")
+                f.write(traceback.format_exc())
     
+    print(f"Die Log-Datei befindet sich unter: {log_file}")
     print("Drücken Sie Enter, um den Updater zu beenden...")
     input()
 
