@@ -252,7 +252,7 @@ jobs:
             ForEach-Object { Copy-Item $_ -Destination "dist/obfuscated/" -Force }
           
           # Setze zusätzliche Nuitka-Parameter für verbesserte Sicherheit
-          $nuitkaCmd = "python -m nuitka --standalone --mingw64 --windows-disable-console --include-package=tkinter --include-package=tkcalendar --include-module=tzdata --include-module=babel.numbers --remove-output --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
+          $nuitkaCmd = "python -m nuitka --assume-yes-for-downloads --standalone --mingw64 --windows-disable-console --include-package=tkinter --include-package=tkcalendar --include-module=tzdata --include-module=babel.numbers --remove-output --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
           
           # Setze Erfolgsflag
           $buildSuccess = $false
