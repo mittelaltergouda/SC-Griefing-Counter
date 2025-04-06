@@ -49,21 +49,73 @@ jobs:
           mkdir -Force $mingwDir
           
           # MinGW64 herunterladen und extrahieren
-          $mingwUrl = "https://github.com/brechtsanders/winlibs_mingw/releases/download/12.2.0-14.0.6-10.0.0-msvcrt-r4/winlibs-x86_64-posix-seh-gcc-12.2.0-mingw-w64-10.0.0-r4.zip"
+          # Aktualisierte URL für MinGW - eine stabilere Version verwenden
+          $mingwUrl = "https://github.com/niXman/mingw-builds-binaries/releases/download/12.2.0-rt_v10-rev2/x86_64-12.2.0-release-win32-seh-msvcrt-rt_v10-rev2.7z"
           $mingwZip = "$mingwDir/mingw64.zip"
           
           Write-Host "Lade MinGW64 herunter..."
-          Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwZip
+          try {
+            # Mit Fehlerbehandlung und Fallback-URL
+            Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwZip -ErrorAction Stop
+          } catch {
+            Write-Warning "Primäre MinGW URL fehlgeschlagen: $_"
+            # Fallback-URL verwenden
+            $fallbackUrl = "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-win32/seh/x86_64-8.1.0-release-win32-seh-rt_v6-rev0.7z"
+            Write-Host "Versuche Fallback-URL: $fallbackUrl"
+            Invoke-WebRequest -Uri $fallbackUrl -OutFile $mingwZip -ErrorAction Stop
+          }
           
           Write-Host "Extrahiere MinGW64..."
-          Expand-Archive -Path $mingwZip -DestinationPath $mingwDir -Force
+          # Prüfe, ob 7-Zip verfügbar ist
+          if (Get-Command "7z" -ErrorAction SilentlyContinue) {
+            # Verwende 7-Zip zum Extrahieren
+            7z x $mingwZip -o"$mingwDir" -y
+          } else {
+            # Fallback auf Expand-Archive wenn möglich
+            try {
+              Expand-Archive -Path $mingwZip -DestinationPath $mingwDir -Force
+            } catch {
+              Write-Warning "Fehler beim Extrahieren: $_"
+              Write-Host "Installiere 7-Zip über PowerShell..."
+              
+              # Versuche 7-Zip über PowerShell zu installieren
+              Invoke-WebRequest -Uri "https://7-zip.org/a/7z2301-x64.exe" -OutFile "$mingwDir/7z-setup.exe"
+              Start-Process -FilePath "$mingwDir/7z-setup.exe" -ArgumentList "/S" -Wait
+              
+              # Versuche erneut mit 7-Zip
+              if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
+                & "C:\Program Files\7-Zip\7z.exe" x $mingwZip -o"$mingwDir" -y
+              } else {
+                # Als letzten Ausweg versuche lokalen MinGW-kompilierer zu finden
+                Write-Warning "Konnte 7-Zip nicht installieren, versuche lokalen GCC zu verwenden..."
+              }
+            }
+          }
           
-          # Füge den Pfad zur PATH-Umgebungsvariable hinzu
-          $env:PATH = "$mingwDir\mingw64\bin;$env:PATH"
+          # Finde mingw-Verzeichnispfad
+          $mingwBinPath = Get-ChildItem -Path $mingwDir -Recurse -Filter "bin" | 
+                          Where-Object { Test-Path (Join-Path $_.FullName "gcc.exe") } | 
+                          Select-Object -First 1 -ExpandProperty FullName
+          
+          if ($mingwBinPath) {
+            # Füge den Pfad zur PATH-Umgebungsvariable hinzu
+            $env:PATH = "$mingwBinPath;$env:PATH"
+            Write-Host "MinGW Bin-Verzeichnis gefunden: $mingwBinPath"
+          } else {
+            Write-Warning "Konnte kein gültiges MinGW bin-Verzeichnis finden"
+            # Versuche einen installierten GCC zu verwenden
+            if (-not (Get-Command "gcc" -ErrorAction SilentlyContinue)) {
+              Write-Warning "GCC wurde nicht in PATH gefunden!"
+            }
+          }
           
           # Verifiziere die Installation
           Write-Host "Verifiziere gcc..."
-          gcc --version
+          if (Get-Command "gcc" -ErrorAction SilentlyContinue) {
+            gcc --version
+          } else {
+            Write-Warning "GCC wurde nicht gefunden. Nuitka könnte fehlschlagen."
+          }
       
       - name: Extract Version from Tag
         id: get_version
