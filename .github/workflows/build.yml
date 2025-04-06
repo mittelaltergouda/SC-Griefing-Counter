@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install nuitka requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==6.7.0  # Zurück zur ursprünglichen Version, die besser mit Python 3.11 funktionieren könnte
+          pip install pyarmor==7.7.4  # Aktualisiert auf eine neuere PyArmor-Version, die möglicherweise stabiler ist
           pip install pyinstaller
           pip install tzdata  # Füge tzdata-Paket hinzu
       
@@ -167,9 +167,9 @@ jobs:
           $obfuscationSuccess = $false
           
           try {
-            # Versuche, die Hauptdatei zu obfuskieren (ohne rekursive Verarbeitung)
-            # Arbeite direkt im Hauptverzeichnis und passe Pfade explizit an
-            pyarmor obfuscate --output dist/obfuscated/obfuscated griefing_counter_tk.py
+            # Versuche, mit PyArmor 7.7.4 ohne Ausschluss von config.py zu obfuskieren
+            # Verwende nur --no-cross-protection für bessere Kompatibilität
+            pyarmor obfuscate --no-cross-protection --output dist/obfuscated/obfuscated griefing_counter_tk.py
             
             # Prüfe, ob die Hauptdatei erfolgreich obfuskiert wurde
             if (Test-Path "dist/obfuscated/obfuscated/griefing_counter_tk.py") {
@@ -189,12 +189,11 @@ jobs:
             Write-Warning "Fehler bei der Obfuskation der Hauptdatei: $_"
           }
           
-          # Wenn die Hauptdatei-Obfuskation fehlgeschlagen ist, ignoriere den config.py-Fehler und versuche andere Dateien
+          # Wenn die Hauptdatei-Obfuskation fehlgeschlagen ist, versuche einzelne Module mit den neuen Optionen
           if (-not $obfuscationSuccess) {
-            Write-Host "Versuche einzelne Dateien zu obfuskieren und überspringe config.py..."
+            Write-Host "Versuche einzelne Module mit spezifischen PyArmor-Optionen zu obfuskieren..."
             
             $filesToObfuscate = @(
-              "griefing_counter_tk.py",
               "database.py",
               "gui.py", 
               "update_checker.py", 
@@ -207,13 +206,10 @@ jobs:
             )
             
             foreach ($file in $filesToObfuscate) {
-              # Überspringe config.py, da es bekanntermaßen Probleme verursacht
-              if ($file -eq "config.py") { continue }
-              
               if (Test-Path $file) {
                 try {
-                  # Versuche, die einzelne Datei zu obfuskieren
-                  pyarmor obfuscate --output dist/obfuscated/temp $file
+                  # Versuche die einzelne Datei mit reduzierten Optionen zu obfuskieren
+                  pyarmor obfuscate --no-cross-protection --restrict=0 --output dist/obfuscated/temp $file
                   
                   # Wenn erfolgreich, kopiere die obfuskierte Datei
                   if (Test-Path "dist/obfuscated/temp/$file") {
