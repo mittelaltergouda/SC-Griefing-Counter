@@ -39,7 +39,7 @@ GITHUB_REPO_OWNER = "Eras308"  # Fester Fallback-Wert
 if os.environ.get('GITHUB_REPOSITORY_OWNER'):
     GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER')
     
-GITHUB_REPO_NAME = "SC-Griefing-Counter-Releases"
+GITHUB_REPO_NAME = "SC-Griefing-Counter"  # Verwende das Hauptrepo statt eines separaten Release-Repos
 
 def is_admin():
     """Prüft, ob das Programm mit Administratorrechten läuft"""
@@ -160,8 +160,9 @@ def main():
             input("Drücken Sie Enter, um den Updater zu beenden...")
             return
             
-        version_url = f"https://{GITHUB_REPO_OWNER}.github.io/{GITHUB_REPO_NAME}/version.json"
-        logger.info(f"Version URL: {version_url}")
+        # Verwende die GitHub Releases API statt GitHub Pages
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
+        logger.info(f"API URL: {api_url}")
         
         # Temporäres Verzeichnis
         temp_dir = "update_temp"
@@ -172,25 +173,55 @@ def main():
         logger.info(f"Erstelle temporäres Verzeichnis: {temp_dir}")
         os.makedirs(temp_dir)
         
-        # Version-Info herunterladen
+        # Release-Info herunterladen
         try:
-            logger.info("Lade Versions-Info...")
-            response = requests.get(version_url, timeout=10)
+            logger.info("Lade Release-Info...")
+            response = requests.get(api_url, timeout=10)
             response.raise_for_status()
-            version_info = response.json()
+            release_info = response.json()
             
-            latest_version = version_info["latest_version"]
-            download_url = version_info["download_url"]
-            hash_url = f"{download_url}.sha256"
+            # Extrahiere Version aus dem Tag-Namen (v0.8.0 -> 0.8.0)
+            latest_version = release_info["tag_name"]
+            if latest_version.startswith('v'):
+                latest_version = latest_version[1:]
             
-            # Für Fallback-Methode
-            base_url = version_url.rsplit('/', 1)[0]
-            zip_url = f"{base_url}/SC-Griefing-Counter-{latest_version}.zip"
+            # Finde den Installer in den Assets
+            installer_asset = None
+            for asset in release_info["assets"]:
+                if asset["name"].endswith(".exe") and "Setup" in asset["name"]:
+                    installer_asset = asset
+                    break
+                    
+            if not installer_asset:
+                raise Exception("Keine Installer-Datei im Release gefunden!")
+                
+            download_url = installer_asset["browser_download_url"]
+            
+            # Finde die SHA256-Hash-Datei in den Assets
+            hash_asset = None
+            for asset in release_info["assets"]:
+                if asset["name"].endswith(".sha256"):
+                    hash_asset = asset
+                    break
+                    
+            if not hash_asset:
+                raise Exception("Keine SHA256-Hash-Datei im Release gefunden!")
+                
+            hash_url = hash_asset["browser_download_url"]
+            
+            # Fallback-ZIP-URL
+            zip_asset = None
+            for asset in release_info["assets"]:
+                if asset["name"].endswith(".zip") and not "Source" in asset["name"]:
+                    zip_asset = asset
+                    break
+                    
+            zip_url = zip_asset["browser_download_url"] if zip_asset else None
             
             logger.info(f"Neueste Version: {latest_version}")
             logger.info(f"Download URL: {download_url}")
             logger.info(f"Hash URL: {hash_url}")
-            logger.info(f"Zip URL (Fallback): {zip_url}")
+            logger.info(f"Zip URL (Fallback): {zip_url or 'Nicht verfügbar'}")
             
             log_message("1. Lade die neueste Version herunter...")
             # Dateien herunterladen
@@ -230,7 +261,7 @@ def main():
             if not check_exe_integrity(exe_local_path):
                 logger.warning("Die heruntergeladene EXE könnte ungültig sein. Versuche Fallback mit ZIP...")
                 # Versuche, die ZIP-Datei als Fallback zu verwenden
-                if extract_fallback_zip(zip_url, temp_dir):
+                if zip_url and extract_fallback_zip(zip_url, temp_dir):
                     # Suche nach der EXE in den entpackten Dateien
                     extracted_exe = None
                     for root, dirs, files in os.walk(temp_dir):

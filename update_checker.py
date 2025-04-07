@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Der GitHub-Username und Repo-Name sollten in einer Konfigurationsdatei gespeichert
 # oder zur Laufzeit durch GitHub Actions gesetzt werden
 GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER', '')
-GITHUB_REPO_NAME = "SC-Griefing-Counter-Releases"
+GITHUB_REPO_NAME = "SC-Griefing-Counter" # Verwende das Hauptrepo statt eines separaten Release-Repos
 
 def check_for_updates(current_version):
     """
@@ -40,19 +40,34 @@ def check_for_updates(current_version):
             logger.warning("GitHub Repository Owner nicht verfügbar. Update-Check wird übersprungen.")
             return False, current_version, ""
             
-        version_url = f"https://{GITHUB_REPO_OWNER}.github.io/{GITHUB_REPO_NAME}/version.json"
+        # Verwende die GitHub Releases API statt der GitHub Pages
+        api_url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
         
         # Version-Info herunterladen
-        response = requests.get(version_url, timeout=5)
+        response = requests.get(api_url, timeout=5)
         response.raise_for_status()
-        version_info = response.json()
+        release_info = response.json()
         
-        latest_version = version_info["latest_version"]
+        # Extrahiere Version aus dem Tag-Namen (v0.8.0 -> 0.8.0)
+        latest_version = release_info["tag_name"]
+        if latest_version.startswith('v'):
+            latest_version = latest_version[1:]
+        
+        # Lade version.json für Changelog
+        assets_url = [asset["browser_download_url"] for asset in release_info["assets"] 
+                     if asset["name"] == "version.json"]
+        
+        changelog = ""
+        if assets_url:
+            version_response = requests.get(assets_url[0], timeout=5)
+            if version_response.status_code == 200:
+                version_info = version_response.json()
+                changelog = version_info.get("changelog", "")
         
         # Vergleiche Versionen
         if version.parse(latest_version) > version.parse(current_version):
             logger.info(f"Neue Version verfügbar: {latest_version} (Aktuell: {current_version})")
-            return True, latest_version, version_info.get("changelog", "")
+            return True, latest_version, changelog or release_info.get("body", "")
         else:
             logger.debug(f"Keine neue Version verfügbar. Aktuell: {current_version}, Server: {latest_version}")
             return False, latest_version, ""

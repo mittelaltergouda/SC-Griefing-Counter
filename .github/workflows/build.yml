@@ -50,7 +50,7 @@ jobs:
         run: |
           $versionJson = @{
             latest_version = "${{ steps.get_version.outputs.app_version }}"
-            download_url = "https://${{ github.repository_owner }}.github.io/SC-Griefing-Counter-Releases/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe"
+            download_url = "https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases/download/v${{ steps.get_version.outputs.app_version }}/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe"
             release_date = (Get-Date -Format "yyyy-MM-dd")
             changelog = "Version ${{ steps.get_version.outputs.app_version }} ist verfügbar."
           } | ConvertTo-Json
@@ -113,7 +113,11 @@ jobs:
           # Installer erstellen
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
 
-      - name: Create ZIP Package
+      - name: Create Source Code ZIP Package
+        run: |
+          Compress-Archive -Path "*.py", "*.md", "*.txt", "LICENSE*", "databases", "tests", "Logs" -DestinationPath "SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip" -Force
+
+      - name: Create Binaries ZIP Package
         run: |
           Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip" -Force
 
@@ -123,60 +127,21 @@ jobs:
         with:
           files: |
             SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
+            SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip
             dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
             dist/griefing_counter.exe.sha256
             version.json
           name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
           body: |
             # Release v${{ steps.get_version.outputs.app_version }}
-
+            
             ## Änderungen
             - Vereinfachter Build-Prozess
             - Installer für einfachere Installation
+            
+            ## Downloads
+            - **Windows Installer:** SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
+            - **ZIP-Paket:** SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
+            - **Quellcode:** SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Deploy to GitHub Pages
-        run: |
-          mkdir -p pages-content
-          Copy-Item -Path "dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe" -Destination "pages-content/" -Force
-          Copy-Item -Path "dist/griefing_counter.exe.sha256" -Destination "pages-content/" -Force
-          Copy-Item -Path "version.json" -Destination "pages-content/" -Force
-
-          # Index.html erstellen
-          $html = @"
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>SC Griefing Counter Downloads</title>
-              <meta charset='utf-8'>
-              <meta name='viewport' content='width=device-width, initial-scale=1'>
-              <style>
-                  body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-                  h1 { color: #333; }
-                  a { color: #0066cc; text-decoration: none; }
-                  a:hover { text-decoration: underline; }
-                  .download-button { display: inline-block; background: #4CAF50; color: white; padding: 10px 20px; margin: 10px 0; border-radius: 4px; }
-              </style>
-          </head>
-          <body>
-              <h1>SC Griefing Counter Downloads</h1>
-              <p>Version: ${{ steps.get_version.outputs.app_version }}</p>
-              <p>Release-Datum: $(Get-Date -Format "yyyy-MM-dd")</p>
-              <p><a href='SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe' class='download-button'>Download Installer</a></p>
-              <p><a href='version.json'>Version Info</a></p>
-              <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>
-          </body>
-          </html>
-          "@
-
-          $html | Out-File -FilePath "pages-content/index.html" -Encoding UTF8
-
-          cd pages-content
-          git init
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add .
-          git commit -m "Update auf Version ${{ steps.get_version.outputs.app_version }}"
-          git remote add origin "https://x-access-token:${{ secrets.REPO_ACCESS_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git"
-          git push -f origin HEAD:gh-pages
