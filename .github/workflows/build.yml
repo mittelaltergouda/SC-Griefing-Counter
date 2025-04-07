@@ -1,12 +1,11 @@
-name: Build und Release Star Citizen Griefing Counter
+name: Build und Release SC Griefing Counter
 
 on:
   push:
     tags:
-      - 'v*' # Wird ausgelöst, wenn ein Tag mit 'v' beginnt (z.B. v1.0.0)
-  workflow_dispatch: # Ermöglicht manuelles Auslösen
+      - 'v*'
+  workflow_dispatch:
 
-# Berechtigungen für den Workflow explizit setzen
 permissions:
   contents: write
   pages: write
@@ -15,109 +14,26 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
-      # Wir verwenden die checkout-Action, die immer erlaubt ist
       - uses: actions/checkout@v3
-      
-      - name: Debug Info
-        run: |
-          echo "GitHub Ref: ${{ github.ref }}"
-          echo "Repository Owner: ${{ github.repository_owner }}"
-          echo "Actor: ${{ github.actor }}"
-      
-      # Wir verwenden setup-python, die immer erlaubt ist
+
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install nuitka==1.9.5  # Aktuelle stabile Version von Nuitka (Stand: April 2025)
+          pip install pyinstaller==6.3.0
           pip install requests packaging
           pip install watchdog tkcalendar
-          pip install pyarmor==9.0.8  # Aktuelle stabile Version von PyArmor (Stand: April 2025)
-          pip install pyinstaller==6.3.0  # Aktuelle stabile Version von PyInstaller (Stand: April 2025)
-          pip install tzdata  # Füge tzdata-Paket hinzu
-      
-      - name: Install Pre-requisites for Nuitka
-        run: |
-          # MinGW-64 installieren (für C-Compiler)
-          # Verzeichnis erstellen
-          $mingwDir = "C:/mingw64bin"
-          mkdir -Force $mingwDir
-          
-          # MinGW64 herunterladen und extrahieren
-          # Aktualisierte URL für MinGW - eine stabilere Version verwenden
-          $mingwUrl = "https://github.com/niXman/mingw-builds-binaries/releases/download/12.2.0-rt_v10-rev2/x86_64-12.2.0-release-win32-seh-msvcrt-rt_v10-rev2.7z"
-          $mingwZip = "$mingwDir/mingw64.zip"
-          
-          Write-Host "Lade MinGW64 herunter..."
-          try {
-            # Mit Fehlerbehandlung und Fallback-URL
-            Invoke-WebRequest -Uri $mingwUrl -OutFile $mingwZip -ErrorAction Stop
-          } catch {
-            Write-Warning "Primäre MinGW URL fehlgeschlagen: $_"
-            # Fallback-URL verwenden
-            $fallbackUrl = "https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Personal%20Builds/mingw-builds/8.1.0/threads-win32/seh/x86_64-8.1.0-release-win32-seh-rt_v6-rev0.7z"
-            Write-Host "Versuche Fallback-URL: $fallbackUrl"
-            Invoke-WebRequest -Uri $fallbackUrl -OutFile $mingwZip -ErrorAction Stop
-          }
-          
-          Write-Host "Extrahiere MinGW64..."
-          # Prüfe, ob 7-Zip verfügbar ist
-          if (Get-Command "7z" -ErrorAction SilentlyContinue) {
-            # Verwende 7-Zip zum Extrahieren
-            7z x $mingwZip -o"$mingwDir" -y
-          } else {
-            # Fallback auf Expand-Archive wenn möglich
-            try {
-              Expand-Archive -Path $mingwZip -DestinationPath $mingwDir -Force
-            } catch {
-              Write-Warning "Fehler beim Extrahieren: $_"
-              Write-Host "Installiere 7-Zip über PowerShell..."
-              
-              # Versuche 7-Zip über PowerShell zu installieren
-              Invoke-WebRequest -Uri "https://7-zip.org/a/7z2301-x64.exe" -OutFile "$mingwDir/7z-setup.exe"
-              Start-Process -FilePath "$mingwDir/7z-setup.exe" -ArgumentList "/S" -Wait
-              
-              # Versuche erneut mit 7-Zip
-              if (Test-Path "C:\Program Files\7-Zip\7z.exe") {
-                & "C:\Program Files\7-Zip\7z.exe" x $mingwZip -o"$mingwDir" -y
-              } else {
-                # Als letzten Ausweg versuche lokalen MinGW-kompilierer zu finden
-                Write-Warning "Konnte 7-Zip nicht installieren, versuche lokalen GCC zu verwenden..."
-              }
-            }
-          }
-          
-          # Finde mingw-Verzeichnispfad
-          $mingwBinPath = Get-ChildItem -Path $mingwDir -Recurse -Filter "bin" | 
-                          Where-Object { Test-Path (Join-Path $_.FullName "gcc.exe") } | 
-                          Select-Object -First 1 -ExpandProperty FullName
-          
-          if ($mingwBinPath) {
-            # Füge den Pfad zur PATH-Umgebungsvariable hinzu
-            $env:PATH = "$mingwBinPath;$env:PATH"
-            Write-Host "MinGW Bin-Verzeichnis gefunden: $mingwBinPath"
-          } else {
-            Write-Warning "Konnte kein gültiges MinGW bin-Verzeichnis finden"
-            # Versuche einen installierten GCC zu verwenden
-            if (-not (Get-Command "gcc" -ErrorAction SilentlyContinue)) {
-              Write-Warning "GCC wurde nicht in PATH gefunden!"
-            }
-          }
-          
-          # Verifiziere die Installation
-          Write-Host "Verifiziere gcc..."
-          if (Get-Command "gcc" -ErrorAction SilentlyContinue) {
-            gcc --version
-          } else {
-            Write-Warning "GCC wurde nicht gefunden. Nuitka könnte fehlschlagen."
-          }
-      
+          pip install tzdata
+          # Inno Setup herunterladen und installieren
+          Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe" -OutFile "innosetup.exe"
+          Start-Process -FilePath "innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+
       - name: Extract Version from Tag
         id: get_version
         shell: pwsh
@@ -125,430 +41,142 @@ jobs:
           if ("${{ github.ref }}" -match "refs/tags/v(.+)") {
             $version = $matches[1]
           } else {
-            $version = "0.7.0"  # Fallback-Version
+            $version = "0.8.0"  # Fallback-Version
           }
-          # Speichere Version als Output-Variable - korrigierte Syntax
           "app_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          # Zeige Version im Log
-          echo "Extrahierte Version: $version"
-          
-      - name: Debug Version Variable
-        run: |
-          echo "VERSION: ${{ steps.get_version.outputs.app_version }}"
-          echo "GITHUB_REF: ${{ github.ref }}"
-      
+          echo "Version: $version"
+
       - name: Create version.json
-        id: create_version_json
-        shell: pwsh
         run: |
-          # Verwende die Version aus dem vorherigen Schritt
-          $versionNum = "${{ steps.get_version.outputs.app_version }}"
           $versionJson = @{
-            latest_version = $versionNum
-            download_url = "https://${{ github.repository_owner }}.github.io/SC-Griefing-Counter-Releases/griefing_counter.exe"
+            latest_version = "${{ steps.get_version.outputs.app_version }}"
+            download_url = "https://${{ github.repository_owner }}.github.io/SC-Griefing-Counter-Releases/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe"
             release_date = (Get-Date -Format "yyyy-MM-dd")
-            changelog = "Neue Version $versionNum verfügbar. Siehe GitHub für Details."
+            changelog = "Version ${{ steps.get_version.outputs.app_version }} ist verfügbar."
           } | ConvertTo-Json
           $versionJson | Out-File -FilePath version.json -Encoding utf8
-          Get-Content version.json
-      
-      - name: Apply PyArmor to Main Script
-        id: pyarmor_step
+
+      - name: Build Applications with PyInstaller
         run: |
-          # Erstelle Verzeichnisstruktur
-          mkdir -p dist/obfuscated
-          
-          # Wende PyArmor für Code-Obfuskation an
-          Write-Host "Führe PyArmor Obfuskation durch..."
-          
-          # Kopiere zunächst alle Python-Dateien in das obfuscated-Verzeichnis
-          Get-ChildItem -Path "*.py" | Copy-Item -Destination "dist/obfuscated" -Force
-          
-          # Flag für erfolgreiche Obfuskation
-          $obfuscationSuccess = $false
-          
-          try {
-            # Verwende die neue PyArmor 9.x Befehlsstruktur
-            # Der 'gen' Befehl ersetzt das alte 'obfuscate'
-            pyarmor gen --output dist/obfuscated/obfuscated dist/obfuscated/griefing_counter_tk.py
-            
-            # Prüfe, ob die Hauptdatei erfolgreich obfuskiert wurde
-            if (Test-Path "dist/obfuscated/obfuscated/griefing_counter_tk.py") {
-              Write-Host "PyArmor Obfuskation der Hauptdatei erfolgreich!"
-              
-              # Kopiere die obfuszierten Dateien zurück ins obfuscated-Verzeichnis
-              Copy-Item -Path "dist/obfuscated/obfuscated/*" -Destination "dist/obfuscated/" -Force -Recurse
-              
-              # Lösche das temporäre Verzeichnis
-              Remove-Item -Path "dist/obfuscated/obfuscated" -Recurse -Force -ErrorAction SilentlyContinue
-              
-              $obfuscationSuccess = $true
-            } else {
-              Write-Warning "PyArmor konnte die Hauptdatei nicht obfuskieren"
-            }
-          } catch {
-            Write-Warning "Fehler bei der Obfuskation der Hauptdatei: $_"
-          }
-          
-          # Wenn die Hauptdatei-Obfuskation fehlgeschlagen ist, versuche einzelne Module mit den neuen Optionen
-          if (-not $obfuscationSuccess) {
-            Write-Host "Versuche einzelne Module mit spezifischen PyArmor-Optionen zu obfuskieren..."
-            
-            $filesToObfuscate = @(
-              "database.py",
-              "gui.py", 
-              "update_checker.py", 
-              "npc_handler.py", 
-              "log_processor.py", 
-              "logger.py", 
-              "stats.py", 
-              "ui_constants.py", 
-              "watchdog_handler.py"
-            )
-            
-            foreach ($file in $filesToObfuscate) {
-              if (Test-Path $file) {
-                try {
-                  # Verwende die neue PyArmor 9.x Befehlsstruktur für einzelne Dateien
-                  pyarmor gen --output dist/obfuscated/temp $file
-                  
-                  # Wenn erfolgreich, kopiere die obfuskierte Datei
-                  if (Test-Path "dist/obfuscated/temp/$file") {
-                    Copy-Item -Path "dist/obfuscated/temp/$file" -Destination "dist/obfuscated/" -Force
-                    Copy-Item -Path "dist/obfuscated/temp/pytransform" -Destination "dist/obfuscated/" -Force -Recurse -ErrorAction SilentlyContinue
-                    Write-Host "Erfolgreich obfuskiert: $file"
-                  }
-                } catch {
-                  Write-Warning "Konnte $file nicht obfuskieren: $_"
-                } finally {
-                  # Lösche das temporäre Verzeichnis
-                  Remove-Item -Path "dist/obfuscated/temp" -Recurse -Force -ErrorAction SilentlyContinue
-                }
-              }
-            }
-          }
-          
-          # Bestätige, dass obfuscated-Verzeichnis die benötigten Dateien enthält
-          Write-Host "Überprüfe, ob die benötigten Dateien im obfuscated-Verzeichnis vorhanden sind..."
-          Get-ChildItem -Path "dist/obfuscated" | ForEach-Object { Write-Host "Datei vorhanden: $_" }
-          
-          # Setze Output-Variable für den nächsten Schritt
-          "obfuscated_file_exists=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Python-Dateien für die Kompilierung vorbereitet."
-      
-      - name: Compile Main Program with Nuitka
-        run: |
-          Write-Host "Kompiliere Hauptprogramm mit Nuitka für bessere Sicherheit..."
-          
-          # Vergewissere dich, dass die Quelldatei existiert
-          if (-not (Test-Path "dist/obfuscated/griefing_counter_tk.py")) {
-            Write-Warning "Quelldatei dist/obfuscated/griefing_counter_tk.py nicht gefunden. Verwende die Original-Datei."
-            Copy-Item "griefing_counter_tk.py" -Destination "dist/obfuscated/" -Force
-          }
-          
-          # Vergewissere dich, dass alle benötigten Module auch kopiert wurden
-          Get-ChildItem -Path "*.py" -Exclude "griefing_counter_tk.py", "gc-updater.py" | 
-            Where-Object { -not (Test-Path "dist/obfuscated/$_") } | 
-            ForEach-Object { Copy-Item $_ -Destination "dist/obfuscated/" -Force }
-          
-          # Setze zusätzliche Nuitka-Parameter für verbesserte Sicherheit
-          $nuitkaCmd = "python -m nuitka --assume-yes-for-downloads --standalone --mingw64 --windows-disable-console --include-package=tkinter --include-package=tkcalendar --include-module=tzdata --include-module=babel.numbers --remove-output --output-dir=dist dist/obfuscated/griefing_counter_tk.py"
-          
-          # Setze Erfolgsflag
-          $buildSuccess = $false
-          
-          # Führe Nuitka aus mit Fehlerbehandlung
-          try {
-            # Führe Nuitka mit Timeout von 10 Minuten aus
-            $nuitkaProcess = Start-Process -FilePath "powershell" -ArgumentList "-Command", $nuitkaCmd -PassThru -NoNewWindow
-            $nuitkaProcess | Wait-Process -Timeout 600 -ErrorAction SilentlyContinue
-            
-            if ($nuitkaProcess.ExitCode -eq 0) {
-              Write-Host "Nuitka-Kompilierung erfolgreich abgeschlossen."
-              $buildSuccess = $true
-            } else {
-              Write-Error "Nuitka-Kompilierung fehlgeschlagen mit Exit-Code: $($nuitkaProcess.ExitCode)"
-              throw "Nuitka-Kompilierung fehlgeschlagen"
-            }
-          }
-          catch {
-            Write-Error "Nuitka-Kompilierung fehlgeschlagen: $_"
-            # Explizit auf PyInstaller umschalten
-            $buildSuccess = $false
-          }
-          
-          # Wenn Nuitka fehlschlägt, verwende PyInstaller als Fallback
-          if (-not $buildSuccess) {
-            Write-Warning "Nuitka fehlgeschlagen. Verwende PyInstaller als Fallback..."
-            
-            # Stelle sicher, dass wir ein sauberes Verzeichnis haben
-            if (Test-Path "dist/griefing_counter") {
-              Remove-Item -Path "dist/griefing_counter" -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            
-            # Ausführen von PyInstaller mit allen erforderlichen Parametern 
-            $pyInstallerCmd = "pyinstaller --name=griefing_counter --noconfirm --windowed --hidden-import=tzdata --hidden-import=babel.numbers --distpath=dist dist/obfuscated/griefing_counter_tk.py"
-            
-            Write-Host "Führe PyInstaller aus: $pyInstallerCmd"
-            Invoke-Expression $pyInstallerCmd
-            
-            # Prüfe, ob PyInstaller erfolgreich war
-            if (Test-Path "dist/griefing_counter.exe") {
-              Write-Host "PyInstaller hat die Anwendung erfolgreich erstellt."
-              $buildSuccess = $true
-              
-              # Erstelle griefing_counter-Verzeichnis falls es nicht existiert
-              if (-not (Test-Path "dist/griefing_counter")) {
-                New-Item -ItemType Directory -Path "dist/griefing_counter" -Force
-              }
-              
-              # Verschiebe die EXE-Datei in das richtige Verzeichnis
-              Move-Item -Path "dist/griefing_counter.exe" -Destination "dist/griefing_counter/" -Force
-            } else {
-              Write-Error "PyInstaller konnte die Anwendung nicht erstellen!"
-              exit 1
-            }
-          }
-          
-          # Prüfe, ob die Kompilierung erfolgreich war
-          if (Test-Path "dist/griefing_counter_tk.dist") {
-            Write-Host "Nuitka-Kompilierung erfolgreich. Benenne Verzeichnis um..."
-            
-            # Falls es bereits ein Zielverzeichnis gibt, entferne es
-            if (Test-Path "dist/griefing_counter") {
-              Remove-Item -Path "dist/griefing_counter" -Recurse -Force
-            }
-            
-            # Benenne das Verzeichnis um
-            Rename-Item -Path "dist/griefing_counter_tk.dist" -NewName "griefing_counter"
-            
-            # Benenne die ausführbare Datei um, falls nötig
-            if (Test-Path "dist/griefing_counter/griefing_counter_tk.exe") {
-              Rename-Item -Path "dist/griefing_counter/griefing_counter_tk.exe" -NewName "griefing_counter.exe"
-            }
-          } 
-          elseif (-not (Test-Path "dist/griefing_counter/griefing_counter.exe")) {
-            Write-Error "Kritischer Fehler: Weder Nuitka noch PyInstaller haben eine ausführbare Datei erstellt!"
-            exit 1
-          }
-          
-          Write-Host "Kompilierung abgeschlossen."
-          
-      - name: Compile Updater Program
-        run: |
-          Write-Host "Kompiliere Update-Tool..."
-          
-          # Kopiere die Updater-Datei ins obfuscated-Verzeichnis, falls noch nicht dort
-          if (-not (Test-Path "dist/obfuscated/gc-updater.py")) {
-            Copy-Item "gc-updater.py" -Destination "dist/obfuscated/" -Force
-          }
-          
-          # Kompiliere den Updater mit Nuitka
-          $updaterNuitkaCmd = "python -m nuitka --assume-yes-for-downloads --standalone --mingw64 --windows-disable-console --remove-output --output-dir=dist dist/obfuscated/gc-updater.py"
-          $updaterSuccess = $false
-          
-          try {
-            # Führe Nuitka mit Timeout von 5 Minuten aus (Updater ist kleiner)
-            $updaterProcess = Start-Process -FilePath "powershell" -ArgumentList "-Command", $updaterNuitkaCmd -PassThru -NoNewWindow
-            $updaterProcess | Wait-Process -Timeout 300 -ErrorAction SilentlyContinue
-            
-            if ($updaterProcess.ExitCode -eq 0) {
-              Write-Host "Updater-Kompilierung mit Nuitka erfolgreich abgeschlossen."
-              $updaterSuccess = $true
-              
-              # Benenne ggf. das Verzeichnis um
-              if (Test-Path "dist/gc-updater.dist") {
-                # Kopiere die ausführbare Datei in das griefing_counter-Verzeichnis
-                if (Test-Path "dist/gc-updater.dist/gc-updater.exe") {
-                  Copy-Item "dist/gc-updater.dist/gc-updater.exe" -Destination "dist/griefing_counter/" -Force
-                  Write-Host "Updater erfolgreich in das Zielverzeichnis kopiert."
-                }
-              }
-            } else {
-              Write-Warning "Updater-Kompilierung mit Nuitka fehlgeschlagen. Versuche PyInstaller..."
-            }
-          } catch {
-            Write-Warning "Updater-Kompilierung mit Nuitka fehlgeschlagen: $_"
-          }
-          
-          # Wenn Nuitka für den Updater fehlschlägt, verwende PyInstaller
-          if (-not $updaterSuccess) {
-            $updaterPyInstallerCmd = "pyinstaller --name=gc-updater --noconfirm --windowed --distpath=dist dist/obfuscated/gc-updater.py"
-            
-            Write-Host "Führe PyInstaller für den Updater aus: $updaterPyInstallerCmd"
-            Invoke-Expression $updaterPyInstallerCmd
-            
-            # Prüfe, ob PyInstaller erfolgreich war
-            if (Test-Path "dist/gc-updater.exe") {
-              Write-Host "PyInstaller hat den Updater erfolgreich erstellt."
-              
-              # Kopiere die ausführbare Datei in das griefing_counter-Verzeichnis
-              Copy-Item "dist/gc-updater.exe" -Destination "dist/griefing_counter/" -Force
-              Write-Host "Updater erfolgreich in das Zielverzeichnis kopiert."
-            } else {
-              Write-Warning "PyInstaller konnte den Updater nicht erstellen. Der automatische Update-Mechanismus wird nicht verfügbar sein."
-            }
-          }
-          
-          Write-Host "Updater-Kompilierung abgeschlossen."
-      
+          # Hauptanwendung kompilieren
+          pyinstaller --name=griefing_counter --noconfirm --windowed \
+            --hidden-import=tkinter --hidden-import=tkcalendar \
+            --hidden-import=tzdata --hidden-import=babel.numbers \
+            --add-data="LICENSE.txt;." --add-data="README.md;." \
+            griefing_counter_tk.py
+
+          # Updater kompilieren
+          pyinstaller --name=gc-updater --noconfirm --windowed \
+            gc-updater.py
+
+          # Verschiebe und organisiere Dateien
+          mkdir -p dist/package
+          Copy-Item -Path "dist/griefing_counter/*" -Destination "dist/package/" -Force -Recurse
+          Copy-Item -Path "dist/gc-updater/*" -Destination "dist/package/" -Force -Recurse
+          Copy-Item -Path "version.json" -Destination "dist/package/" -Force
+
       - name: Generate SHA256 Hash
-        shell: pwsh
         run: |
-          $exePath = "dist/griefing_counter/griefing_counter.exe"
+          $exePath = "dist/package/griefing_counter.exe"
           if (Test-Path $exePath) {
             $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
+            $hash | Out-File -FilePath "dist/package/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
             $hash | Out-File -FilePath "dist/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
-            # Kopiere auch in den Programmordner für Konsistenz
-            $hash | Out-File -FilePath "dist/griefing_counter/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
-          } else {
-            Write-Error "Die Datei $exePath wurde nicht gefunden!"
-            exit 1
+            Write-Host "SHA256 hash erstellt: $hash"
           }
-      
-      - name: Copy Additional Files to Distribution
+
+      - name: Create Inno Setup Installer
         run: |
-          # Stelle sicher, dass die Zielverzeichnisse existieren
-          if (!(Test-Path "dist/griefing_counter")) {
-            mkdir -p dist/griefing_counter
-          }
-          
-          # Kopiere Dateien mit Fehlerbehandlung
-          $filesToCopy = @("README.md", "LICENSE.txt", "CONTRIBUTING.md", "version.json")
-          foreach ($file in $filesToCopy) {
-            if (Test-Path $file) {
-              Copy-Item $file -Destination "dist/griefing_counter/" -Force
-            } else {
-              Write-Warning "Warnung: Datei $file nicht gefunden, wird übersprungen"
-            }
-          }
-          
-          # Kopiere updater.exe, wenn vorhanden
-          if (Test-Path "dist/gc-updater.dist/gc-updater.exe") {
-            Copy-Item "dist/gc-updater.dist/gc-updater.exe" -Destination "dist/griefing_counter/" -Force
-          } else {
-            Write-Warning "Warnung: gc-updater.exe nicht gefunden"
-          }
-      
-      - name: Create Release ZIP
-        id: create_zip
-        shell: pwsh
+          $innoScript = @"
+          [Setup]
+          AppName=SC Griefing Counter
+          AppVersion=${{ steps.get_version.outputs.app_version }}
+          DefaultDirName={autopf}\SC Griefing Counter
+          DefaultGroupName=SC Griefing Counter
+          UninstallDisplayIcon={app}\griefing_counter.exe
+          Compression=lzma2
+          SolidCompression=yes
+          OutputDir=dist
+          OutputBaseFilename=SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}
+
+          [Files]
+          Source: "dist\package\*"; DestDir: "{app}"; Flags: recursesubdirs
+
+          [Icons]
+          Name: "{group}\SC Griefing Counter"; Filename: "{app}\griefing_counter.exe"
+          Name: "{group}\Updater"; Filename: "{app}\gc-updater.exe"
+          Name: "{commondesktop}\SC Griefing Counter"; Filename: "{app}\griefing_counter.exe"
+          "@
+
+          $innoScript | Out-File -FilePath "setup.iss" -Encoding utf8
+
+          # Installer erstellen
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
+
+      - name: Create ZIP Package
         run: |
-          # Hole die Version aus dem get_version-Schritt
-          $versionNum = "${{ steps.get_version.outputs.app_version }}"
-          # Erstelle den ZIP-Dateinamen
-          $zipFilename = "SC-Griefing-Counter-$versionNum.zip"
-          
-          # Prüfe, ob das Verzeichnis existiert
-          if (Test-Path "dist/griefing_counter") {
-            # Erstelle die ZIP-Datei - Anführungszeichen um Pfad entfernt
-            Compress-Archive -Path dist/griefing_counter/* -DestinationPath $zipFilename -Force
-            # Speichere den Dateinamen als Output
-            "zip_filename=$zipFilename" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          } else {
-            Write-Error "Das Verzeichnis dist/griefing_counter wurde nicht gefunden!"
-          }
-      
-      # GitHub Release erstellen
+          Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip" -Force
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ${{ steps.create_zip.outputs.zip_filename }}
+            SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
+            dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
             dist/griefing_counter.exe.sha256
             version.json
           name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
           body: |
             # Release v${{ steps.get_version.outputs.app_version }}
-            
+
             ## Änderungen
-            - Automatisierter Build-Prozess
-            - Updates können direkt in der App installiert werden
+            - Vereinfachter Build-Prozess
+            - Installer für einfachere Installation
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      # Alternative Methode für GitHub Pages
-      - name: Create index.html file
-        shell: pwsh
-        run: |
-          # Erstelle Verzeichnis
-          New-Item -ItemType Directory -Path "pages-content" -Force
-          
-          # Aktuelles Datum für Release
-          $releaseDate = Get-Date -Format "yyyy-MM-dd"
-          
-          # HTML-Inhalt als separate Zeilen, um YAML-Probleme zu vermeiden
-          $lines = @(
-            "<!DOCTYPE html>",
-            "<html>",
-            "<head>",
-            "    <title>SC Griefing Counter Downloads</title>",
-            "    <meta charset='utf-8'>",
-            "    <meta name='viewport' content='width=device-width, initial-scale=1'>",
-            "    <style>",
-            "        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }",
-            "        h1 { color: #333; }",
-            "        a { color: #0066cc; text-decoration: none; }",
-            "        a:hover { text-decoration: underline; }",
-            "        .download-button { display: inline-block; background: #4CAF50; color: white; padding: 10px 20px; margin: 10px 0; border-radius: 4px; }",
-            "    </style>",
-            "</head>",
-            "<body>",
-            "    <h1>SC Griefing Counter Downloads</h1>",
-            "    <p>Version: ${{ steps.get_version.outputs.app_version }}</p>",
-            "    <p>Release-Datum: $releaseDate</p>",
-            "    <p><a href='griefing_counter.exe' class='download-button'>Download Application</a></p>",
-            "    <p><a href='version.json'>Version Info</a></p>",
-            "    <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>",
-            "</body>",
-            "</html>"
-          )
-          
-          # In Datei schreiben
-          $lines | Out-File -FilePath "pages-content/index.html" -Encoding UTF8
 
-      - name: Prepare GitHub Pages Content
+      - name: Deploy to GitHub Pages
         run: |
-          # Kopiere Dateien mit Fehlerprüfung
-          $sourceFiles = @{
-            "dist/griefing_counter/griefing_counter.exe" = "pages-content/griefing_counter.exe"
-            "dist/griefing_counter.exe.sha256" = "pages-content/griefing_counter.exe.sha256"
-            "version.json" = "pages-content/version.json"
-            "README.md" = "pages-content/README.md"
-            "LICENSE.txt" = "pages-content/LICENSE.txt"
-            "CONTRIBUTING.md" = "pages-content/CONTRIBUTING.md"
-          }
-          
-          foreach ($source in $sourceFiles.Keys) {
-            if (Test-Path $source) {
-              Copy-Item $source -Destination $sourceFiles[$source] -Force
-              Write-Host "Kopiert: $source nach $($sourceFiles[$source])"
-            } else {
-              Write-Warning "Warnung: $source nicht gefunden, wird übersprungen"
-            }
-          }
-      
-      - name: Deploy to GitHub Pages Repo
-        if: success()
-        run: |
+          mkdir -p pages-content
+          Copy-Item -Path "dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe" -Destination "pages-content/" -Force
+          Copy-Item -Path "dist/griefing_counter.exe.sha256" -Destination "pages-content/" -Force
+          Copy-Item -Path "version.json" -Destination "pages-content/" -Force
+
+          # Index.html erstellen
+          $html = @"
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>SC Griefing Counter Downloads</title>
+              <meta charset='utf-8'>
+              <meta name='viewport' content='width=device-width, initial-scale=1'>
+              <style>
+                  body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                  h1 { color: #333; }
+                  a { color: #0066cc; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+                  .download-button { display: inline-block; background: #4CAF50; color: white; padding: 10px 20px; margin: 10px 0; border-radius: 4px; }
+              </style>
+          </head>
+          <body>
+              <h1>SC Griefing Counter Downloads</h1>
+              <p>Version: ${{ steps.get_version.outputs.app_version }}</p>
+              <p>Release-Datum: $(Get-Date -Format "yyyy-MM-dd")</p>
+              <p><a href='SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe' class='download-button'>Download Installer</a></p>
+              <p><a href='version.json'>Version Info</a></p>
+              <p><a href='https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases'>Alle Releases auf GitHub</a></p>
+          </body>
+          </html>
+          "@
+
+          $html | Out-File -FilePath "pages-content/index.html" -Encoding UTF8
+
           cd pages-content
           git init
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add .
           git commit -m "Update auf Version ${{ steps.get_version.outputs.app_version }}"
-          
-          # Mit Fehlerbehandlung pushen (korrigierter Token-Zugriff)
-          # Hier wird ein Personal Access Token benötigt, nicht das Standard GITHUB_TOKEN
-          $token = "${{ secrets.REPO_ACCESS_TOKEN }}"
-          $repoUrl = "https://x-access-token:$token@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git"
-          git remote add origin $repoUrl
+          git remote add origin "https://x-access-token:${{ secrets.REPO_ACCESS_TOKEN }}@github.com/${{ github.repository_owner }}/SC-Griefing-Counter-Releases.git"
           git push -f origin HEAD:gh-pages
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Fehler beim Pushen zu GitHub Pages. Exit-Code: $LASTEXITCODE"
-            Write-Host "Hinweis: Für Push zu einem anderen Repository wird ein PAT benötigt."
-            Write-Host "Erstelle ein Personal Access Token mit 'repo' Rechten und speichere es als REPO_ACCESS_TOKEN in deinen Repository Secrets."
-          } else {
-            Write-Host "Erfolgreich auf GitHub Pages deployed!"
-          }
