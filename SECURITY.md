@@ -24,7 +24,7 @@ Wenn Sie eine Sicherheitslücke im SC-Griefing-Counter entdecken, bitten wir Sie
 
 ### Was passiert danach?
 
-- Sie erhalten innerhalb von 48 Stunden eine erste Antwort.
+- Sie erhalten innerhalb von 96 Stunden eine erste Antwort.
 - Wir werden die Sicherheitslücke untersuchen und mit Ihnen zusammenarbeiten, um weitere Details zu klären.
 - Sobald das Problem bestätigt wurde, arbeiten wir an einer Lösung und informieren Sie über den Fortschritt.
 - Nach Behebung der Sicherheitslücke veröffentlichen wir ein Update mit entsprechenden Informationen und Danksagungen an den Entdecker.
@@ -40,7 +40,7 @@ If you discover a security vulnerability in SC-Griefing-Counter, we ask that you
 
 ### What happens next?
 
-- You will receive an initial response within 48 hours.
+- You will receive an initial response within 96 hours.
 - We will investigate the vulnerability and work with you to clarify additional details.
 - Once the issue is confirmed, we will work on a solution and keep you informed of progress.
 - After fixing the security vulnerability, we will publish an update with relevant information and acknowledgments to the discoverer.
