@@ -141,6 +141,10 @@ def extract_fallback_zip(zip_url, extract_dir):
         logger.error(f"Fehler beim Extrahieren der Zip-Datei: {str(e)}")
         return False
 
+# Logging-Funktion für benutzerfreundliche Rückmeldungen
+def log_message(message):
+    print(message)
+
 def main():
     try:
         logger.info("Star Citizen Griefing Counter Updater startet...")
@@ -148,6 +152,8 @@ def main():
         logger.info(f"Arbeitsverzeichnis: {os.getcwd()}")
         logger.info(f"Administratorrechte: {'Ja' if is_admin() else 'Nein'}")
         
+        log_message("Starte Update-Prozess...\n")
+
         # URL zur Version und zum Download
         if not GITHUB_REPO_OWNER:
             logger.error("GitHub Repository Owner nicht verfügbar. Update wird abgebrochen.")
@@ -186,6 +192,7 @@ def main():
             logger.info(f"Hash URL: {hash_url}")
             logger.info(f"Zip URL (Fallback): {zip_url}")
             
+            log_message("1. Lade die neueste Version herunter...")
             # Dateien herunterladen
             exe_local_path = os.path.join(temp_dir, "griefing_counter.exe")
             hash_local_path = os.path.join(temp_dir, "griefing_counter.exe.sha256")
@@ -193,11 +200,15 @@ def main():
             logger.info("Lade neue Version herunter...")
             if not download_file(download_url, exe_local_path):
                 raise Exception("Download der EXE fehlgeschlagen!")
+            log_message(f"   -> Download erfolgreich: {exe_local_path}\n")
             
+            log_message("2. Lade SHA256-Hash-Datei herunter...")
             logger.info("Lade Hash-Datei herunter...")
             if not download_file(hash_url, hash_local_path):
                 raise Exception("Download der Hash-Datei fehlgeschlagen!")
+            log_message(f"   -> Download erfolgreich: {hash_local_path}\n")
             
+            log_message("3. Überprüfe Integrität der heruntergeladenen Datei...")
             # Hash überprüfen
             logger.info("Überprüfe Hash...")
             with open(hash_local_path, 'r') as f:
@@ -207,8 +218,11 @@ def main():
             logger.info(f"Erwarteter Hash: {expected_hash}")
             logger.info(f"Tatsächlicher Hash: {actual_hash}")
             
+            log_message("   -> Integritätsprüfung wird durchgeführt...")
             if actual_hash != expected_hash:
+                log_message("   -> Integritätsprüfung fehlgeschlagen! Die Datei könnte beschädigt oder manipuliert sein.")
                 raise Exception("SHA256-Hash stimmt nicht überein! Mögliche Manipulation der Datei.")
+            log_message("   -> Integritätsprüfung erfolgreich.\n")
             
             logger.info("Hash erfolgreich verifiziert.")
             
@@ -265,6 +279,7 @@ def main():
                     print("Bitte schließen Sie die Anwendung manuell und drücken Sie Enter...")
                     input()
             
+            log_message("4. Ersetze alte Version...")
             # Datei ersetzen
             logger.info(f"Ersetze alte Version: {main_exe}")
             
@@ -274,10 +289,12 @@ def main():
                     backup_path = f"{main_exe}.bak"
                     logger.info(f"Erstelle Sicherungskopie: {backup_path}")
                     shutil.copy2(main_exe, backup_path)
+                    log_message(f"   -> Alte Version gesichert: {backup_path}")
                 
                 # Kopieren mit erhöhten Rechten wenn nötig
                 shutil.copy2(exe_local_path, main_exe)
                 logger.info("Datei erfolgreich ersetzt.")
+                log_message("   -> Neue Version erfolgreich installiert.\n")
             except Exception as e:
                 logger.error(f"Fehler beim Ersetzen der Datei: {str(e)}")
                 if not is_admin():
@@ -304,13 +321,17 @@ def main():
             logger.info("Update erfolgreich abgeschlossen!")
             logger.info("Starte Griefing Counter...")
             
+            log_message("5. Starte aktualisierte Anwendung...")
             # Starte die aktualisierte Anwendung
             try:
                 subprocess.Popen([main_exe])
                 logger.info("Anwendung gestartet.")
+                log_message("   -> Anwendung erfolgreich gestartet.\n")
             except Exception as e:
                 logger.error(f"Fehler beim Starten der Anwendung: {str(e)}")
                 print(f"Fehler beim Starten der Anwendung. Details in der Log-Datei: {log_file}")
+            
+            log_message("Update abgeschlossen! Vielen Dank, dass Sie den SC Griefing Counter verwenden.")
             
         except Exception as e:
             logger.error(f"Fehler beim Update: {str(e)}")
