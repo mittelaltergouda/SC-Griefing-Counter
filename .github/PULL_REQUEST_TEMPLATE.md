@@ -1,36 +1,36 @@
-# Pull Request für SC-Griefing-Counter
+# Pull Request for SC-Griefing-Counter
 
-## Lizenzbestätigung
+## License Confirmation
 
-- [ ] Ich habe die [Lizenzbedingungen (LICENSE.txt)](../LICENSE.txt) und [Beitragsrichtlinien (CONTRIBUTING.md)](../CONTRIBUTING.md) vollständig gelesen und verstanden.
-- [ ] Ich stimme ausdrücklich zu, dass mein Beitrag unter die in LICENSE.txt beschriebene Lizenz gestellt wird.
-- [ ] Ich erteile hiermit meine unwiderrufliche Zustimmung, dass mein Beitrag in Zukunft ohne weitere Benachrichtigung unter eine andere Lizenz gestellt werden darf, falls das SC-Griefing-Counter-Projekt dies erfordert.
+- [ ] I have completely read and understood the [license terms (LICENSE.txt)](../LICENSE.txt) and [contribution guidelines (CONTRIBUTING.md)](../CONTRIBUTING.md).
+- [ ] I expressly agree that my contribution will be licensed under the license described in LICENSE.txt.
+- [ ] I hereby grant my irrevocable consent that my contribution may be placed under a different license in the future without further notice, if required by the SC-Griefing-Counter project.
 
-## Beschreibung der Änderungen
+## Description of Changes
 
 <!--
-Bitte beschreibe hier ausführlich die Änderungen, die du vorgenommen hast.
-- Was wurde geändert oder hinzugefügt?
-- Warum wurden diese Änderungen vorgenommen?
-- Gibt es besondere Aspekte, die bei der Überprüfung beachtet werden sollten?
+Please describe in detail the changes you have made.
+- What was changed or added?
+- Why were these changes made?
+- Are there specific aspects that should be considered during review?
 -->
 
-## Checkliste
+## Checklist
 
-- [ ] Ich halte mich an den im Projekt verwendeten Code-Stil
-- [ ] Ich habe alle erforderlichen Tests angepasst oder neue Tests hinzugefügt
-- [ ] Meine Änderungen verursachen keine neuen Warnungen oder Fehler
-- [ ] Ich habe meine Änderungen lokal getestet
+- [ ] I adhere to the code style used in the project
+- [ ] I have adjusted all necessary tests or added new tests
+- [ ] My changes do not cause any new warnings or errors
+- [ ] I have tested my changes locally
 
-## Betroffene Dateien
+## Affected Files
 
 <!--
-Liste hier bitte alle betroffenen Dateien auf
+Please list all affected files here
 -->
 
-## Verbundene Issues
+## Related Issues
 
 <!--
-Falls dieser Pull Request mit einem oder mehreren Issues zusammenhängt, 
-verweise bitte hier darauf (z.B. "Fixes #123", "Relates to #456")
+If this Pull Request is related to one or more issues,
+please reference them here (e.g., "Fixes #123", "Relates to #456")
 -->
