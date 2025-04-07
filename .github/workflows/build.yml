@@ -152,8 +152,36 @@ jobs:
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
 
       - name: Create Source Code ZIP Package
+        shell: pwsh
         run: |
-          Compress-Archive -Path "*.py", "*.md", "*.txt", "LICENSE*", "databases", "tests", "Logs" -DestinationPath "SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip" -Force
+          # Erstellen einer Liste von Dateien und Ordnern, die existieren
+          $paths = @()
+          
+          # Python-Dateien
+          if (Test-Path "*.py") { $paths += "*.py" }
+          
+          # Markdown-Dateien
+          if (Test-Path "*.md") { $paths += "*.md" }
+          
+          # Text-Dateien
+          if (Test-Path "*.txt") { $paths += "*.txt" }
+          
+          # Lizenz-Dateien
+          if (Test-Path "LICENSE*") { $paths += "LICENSE*" }
+          
+          # Sicherstellen, dass die Verzeichnisse existieren, bevor sie hinzugefügt werden
+          if (Test-Path "databases" -PathType Container) { $paths += "databases" }
+          if (Test-Path "tests" -PathType Container) { $paths += "tests" }
+          if (Test-Path "Logs" -PathType Container) { $paths += "Logs" }
+          
+          # Nur wenn wir Pfade haben, erstellen wir das Archiv
+          if ($paths.Count -gt 0) {
+            Write-Host "Archiving the following items: $($paths -join ', ')"
+            Compress-Archive -Path $paths -DestinationPath "SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip" -Force
+          } else {
+            Write-Error "No files found to archive!"
+            exit 1
+          }
 
       - name: Create Binaries ZIP Package
         run: |
