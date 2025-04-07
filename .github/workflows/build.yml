@@ -30,9 +30,46 @@ jobs:
           pip install requests packaging
           pip install watchdog tkcalendar
           pip install tzdata
-          # Inno Setup herunterladen und installieren
-          Invoke-WebRequest -Uri "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe" -OutFile "innosetup.exe"
-          Start-Process -FilePath "innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+          
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          # Inno Setup herunterladen und installieren (mit erweitertem Error-Handling)
+          $innoUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+          $innoPath = "innosetup.exe"
+          
+          Write-Host "Downloading Inno Setup from $innoUrl"
+          try {
+            Invoke-WebRequest -Uri $innoUrl -OutFile $innoPath -TimeoutSec 120
+            if (!(Test-Path $innoPath)) {
+              throw "Failed to download Inno Setup installer"
+            }
+          } catch {
+            Write-Error "Failed to download Inno Setup: $_"
+            exit 1
+          }
+          
+          Write-Host "Installing Inno Setup with /VERYSILENT /SUPPRESSMSGBOXES /NORESTART options"
+          try {
+            $process = Start-Process -FilePath $innoPath -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru -Wait -NoNewWindow
+            $exitCode = $process.ExitCode
+            
+            if ($exitCode -ne 0) {
+              throw "Inno Setup installation failed with exit code $exitCode"
+            }
+          } catch {
+            Write-Error "Error installing Inno Setup: $_"
+            exit 1
+          }
+          
+          # Überprüfe, ob die Inno Setup-Installation erfolgreich war
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $isccPath)) {
+            Write-Error "Inno Setup ISCC compiler not found at expected location: $isccPath"
+            exit 1
+          }
+          
+          Write-Host "Inno Setup successfully installed"
 
       - name: Extract Version from Tag
         id: get_version
