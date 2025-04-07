@@ -98,15 +98,14 @@ jobs:
       - name: Build Applications with PyInstaller
         run: |
           # Hauptanwendung kompilieren
-          pyinstaller --name=griefing_counter --noconfirm --windowed \
-            --hidden-import=tkinter --hidden-import=tkcalendar \
-            --hidden-import=tzdata --hidden-import=babel.numbers \
-            --add-data="LICENSE.txt;." --add-data="README.md;." \
-            griefing_counter_tk.py
+          pyinstaller "--name=griefing_counter" "--noconfirm" "--windowed" `
+            "--hidden-import=tkinter" "--hidden-import=tkcalendar" `
+            "--hidden-import=tzdata" "--hidden-import=babel.numbers" `
+            "--add-data=LICENSE.txt;." "--add-data=README.md;." `
+            "griefing_counter_tk.py"
 
           # Updater kompilieren
-          pyinstaller --name=gc-updater --noconfirm --windowed \
-            gc-updater.py
+          pyinstaller "--name=gc-updater" "--noconfirm" "--windowed" "gc-updater.py"
 
           # Verschiebe und organisiere Dateien
           mkdir -p dist/package
