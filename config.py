@@ -1,29 +1,65 @@
 import os
+import sys
+from pathlib import Path
+
+# Hilfsfunktion, um den richtigen Pfad für Anwendungsdaten zu bestimmen
+def get_app_data_path():
+    """Gibt den Pfad zum Anwendungsdatenverzeichnis im AppData-Ordner zurück."""
+    app_name = "SC-Griefing-Counter"
+    
+    # Unter Windows AppData-Verzeichnis verwenden
+    app_data = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), app_name)
+    return app_data
 
 # Folders for logs
 LIVE_FOLDER = r"C:\Program Files\Roberts Space Industries\StarCitizen\LIVE"
 BACKUP_FOLDER = os.path.join(LIVE_FOLDER, "logbackups")
 GAME_LOG_FILENAME = "Game.log"
 
-# Logging folders
-LOG_FOLDER = "Logs"
+# Anwendungsverzeichnis für Daten
+APP_DATA_PATH = get_app_data_path()
+
+# Logging folders (nun im Benutzerverzeichnis)
+LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
 ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
 GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
-# Debug-Log-Ordner hinzufügen
 DEBUG_LOG_FOLDER = os.path.join(LOG_FOLDER, "debug")
+
+# Config-Datei im Benutzerverzeichnis
+CONFIG_FILE = os.path.join(APP_DATA_PATH, "config.txt")
+
+# Folder where DB files are stored (im Benutzerverzeichnis)
+DB_FOLDER = os.path.join(APP_DATA_PATH, "databases")
 
 # Verschoben in eine Funktion, um PyArmor-Kompatibilität zu verbessern
 def ensure_directories_exist():
     """Stellt sicher, dass alle benötigten Verzeichnisse existieren."""
-    os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
-    os.makedirs(GENERAL_LOG_FOLDER, exist_ok=True)
-    os.makedirs(DEBUG_LOG_FOLDER, exist_ok=True)
-
-# Where we store the player's config
-CONFIG_FILE = "config.txt"
-
-# Folder where DB files are stored
-DB_FOLDER = "databases"
+    try:
+        os.makedirs(APP_DATA_PATH, exist_ok=True)
+        os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
+        os.makedirs(GENERAL_LOG_FOLDER, exist_ok=True)
+        os.makedirs(DEBUG_LOG_FOLDER, exist_ok=True)
+        os.makedirs(DB_FOLDER, exist_ok=True)
+    except Exception as e:
+        print(f"Fehler beim Erstellen der Verzeichnisse: {e}")
+        # Fallback: Verwende temporäres Verzeichnis
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        global APP_DATA_PATH, LOG_FOLDER, ERROR_LOG_FOLDER, GENERAL_LOG_FOLDER, DEBUG_LOG_FOLDER, CONFIG_FILE, DB_FOLDER
+        APP_DATA_PATH = os.path.join(temp_dir, "SC-Griefing-Counter")
+        LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
+        ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
+        GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
+        DEBUG_LOG_FOLDER = os.path.join(LOG_FOLDER, "debug")
+        CONFIG_FILE = os.path.join(APP_DATA_PATH, "config.txt")
+        DB_FOLDER = os.path.join(APP_DATA_PATH, "databases")
+        
+        # Versuche, die temporären Verzeichnisse zu erstellen
+        os.makedirs(APP_DATA_PATH, exist_ok=True)
+        os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
+        os.makedirs(GENERAL_LOG_FOLDER, exist_ok=True)
+        os.makedirs(DEBUG_LOG_FOLDER, exist_ok=True)
+        os.makedirs(DB_FOLDER, exist_ok=True)
 
 # Default/Global values
 CURRENT_PLAYER_NAME = ""

@@ -17,6 +17,8 @@ import logging
 import traceback
 import ctypes
 from datetime import datetime
+import tkinter as tk
+from tkinter import messagebox
 
 # Einfaches Logging einrichten
 log_dir = "Logs/updater"
@@ -25,7 +27,7 @@ log_file = os.path.join(log_dir, f"updater_{datetime.now().strftime('%Y%m%d_%H%M
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levellevelname)s - %(message)s',
     handlers=[
         logging.FileHandler(log_file),
         logging.StreamHandler()
@@ -35,7 +37,7 @@ logger = logging.getLogger("GC-Updater")
 
 # Der GitHub-Username und Repo-Name sollten in einer Konfigurationsdatei gespeichert
 # oder zur Laufzeit durch GitHub Actions gesetzt werden
-GITHUB_REPO_OWNER = "Eras308"  # Fester Fallback-Wert
+GITHUB_REPO_OWNER = "mittelaltergouda"  # Aktualisierter Repository-Besitzer
 if os.environ.get('GITHUB_REPOSITORY_OWNER'):
     GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER')
     
@@ -145,6 +147,13 @@ def extract_fallback_zip(zip_url, extract_dir):
 def log_message(message):
     print(message)
 
+def show_message_box(title, message):
+    """Zeigt ein Meldungsfenster an anstelle von Konsoleneingaben"""
+    root = tk.Tk()
+    root.withdraw()  # Verstecke das Hauptfenster
+    messagebox.showinfo(title, message)
+    root.destroy()
+
 def main():
     try:
         logger.info("Star Citizen Griefing Counter Updater startet...")
@@ -157,7 +166,7 @@ def main():
         # URL zur Version und zum Download
         if not GITHUB_REPO_OWNER:
             logger.error("GitHub Repository Owner nicht verfügbar. Update wird abgebrochen.")
-            input("Drücken Sie Enter, um den Updater zu beenden...")
+            show_message_box("Fehler", "GitHub Repository Owner nicht verfügbar. Update wird abgebrochen.")
             return
             
         # Verwende die GitHub Releases API statt GitHub Pages
@@ -307,8 +316,7 @@ def main():
                         logger.info("Keine laufende Instanz gefunden.")
                 except Exception as e:
                     logger.warning(f"Konnte laufende Instanz nicht automatisch beenden: {str(e)}")
-                    print("Bitte schließen Sie die Anwendung manuell und drücken Sie Enter...")
-                    input()
+                    show_message_box("Hinweis", "Bitte schließen Sie die Anwendung manuell und klicken Sie auf OK, um fortzufahren.")
             
             log_message("4. Ersetze alte Version...")
             # Datei ersetzen
@@ -341,8 +349,7 @@ def main():
                         except Exception as e:
                             logger.error(f"Konnte nicht mit Admin-Rechten neu starten: {str(e)}")
                     
-                    print("Bitte führen Sie den Updater mit Administrator-Rechten aus.")
-                    input("Drücken Sie Enter, um fortzufahren...")
+                    show_message_box("Fehler", "Bitte führen Sie den Updater mit Administrator-Rechten aus.")
                     return
             
             # Aufräumen
@@ -360,29 +367,23 @@ def main():
                 log_message("   -> Anwendung erfolgreich gestartet.\n")
             except Exception as e:
                 logger.error(f"Fehler beim Starten der Anwendung: {str(e)}")
-                print(f"Fehler beim Starten der Anwendung. Details in der Log-Datei: {log_file}")
+                show_message_box("Fehler", f"Fehler beim Starten der Anwendung. Details in der Log-Datei: {log_file}")
             
-            log_message("Update abgeschlossen! Vielen Dank, dass Sie den SC Griefing Counter verwenden.")
+            # Zeige eine Erfolgsmeldung statt Konsoleneingabe zu verwenden
+            show_message_box("Update abgeschlossen", 
+                           "Update erfolgreich abgeschlossen!\nVielen Dank, dass Sie den SC Griefing Counter verwenden.")
             
         except Exception as e:
             logger.error(f"Fehler beim Update: {str(e)}")
             logger.error(traceback.format_exc())
-            print(f"Ein Fehler ist aufgetreten. Details in der Log-Datei: {log_file}")
+            show_message_box("Fehler", f"Ein Fehler ist aufgetreten. Details in der Log-Datei: {log_file}")
         
     except Exception as e:
         # Globaler Ausnahmefehler
-        print(f"Kritischer Fehler: {str(e)}")
-        if 'logger' in locals():
-            logger.critical(f"Kritischer Fehler: {str(e)}")
-            logger.critical(traceback.format_exc())
-        else:
-            with open("updater_critical_error.log", "w") as f:
-                f.write(f"Kritischer Fehler: {str(e)}\n")
-                f.write(traceback.format_exc())
-    
-    print(f"Die Log-Datei befindet sich unter: {log_file}")
-    print("Drücken Sie Enter, um den Updater zu beenden...")
-    input()
+        logger.critical(f"Kritischer Fehler: {str(e)}")
+        logger.critical(traceback.format_exc())
+        show_message_box("Kritischer Fehler", 
+                       f"Ein kritischer Fehler ist aufgetreten: {str(e)}\nDetails in der Log-Datei: {log_file}")
 
 if __name__ == "__main__":
     main()

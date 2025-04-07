@@ -151,38 +151,6 @@ jobs:
           # Installer erstellen
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
 
-      - name: Create Source Code ZIP Package
-        shell: pwsh
-        run: |
-          # Erstellen einer Liste von Dateien und Ordnern, die existieren
-          $paths = @()
-          
-          # Python-Dateien
-          if (Test-Path "*.py") { $paths += "*.py" }
-          
-          # Markdown-Dateien
-          if (Test-Path "*.md") { $paths += "*.md" }
-          
-          # Text-Dateien
-          if (Test-Path "*.txt") { $paths += "*.txt" }
-          
-          # Lizenz-Dateien
-          if (Test-Path "LICENSE*") { $paths += "LICENSE*" }
-          
-          # Sicherstellen, dass die Verzeichnisse existieren, bevor sie hinzugefügt werden
-          if (Test-Path "databases" -PathType Container) { $paths += "databases" }
-          if (Test-Path "tests" -PathType Container) { $paths += "tests" }
-          if (Test-Path "Logs" -PathType Container) { $paths += "Logs" }
-          
-          # Nur wenn wir Pfade haben, erstellen wir das Archiv
-          if ($paths.Count -gt 0) {
-            Write-Host "Archiving the following items: $($paths -join ', ')"
-            Compress-Archive -Path $paths -DestinationPath "SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip" -Force
-          } else {
-            Write-Error "No files found to archive!"
-            exit 1
-          }
-
       - name: Create Binaries ZIP Package
         run: |
           Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip" -Force
@@ -193,7 +161,6 @@ jobs:
         with:
           files: |
             SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
-            SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip
             dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
             dist/griefing_counter.exe.sha256
             version.json
@@ -203,12 +170,13 @@ jobs:
             
             ## Änderungen
             <!-- Trage hier die für Benutzer relevanten Änderungen manuell ein -->
-            - Verbesserte Benutzeroberfläche
-            - Fehlerbehebungen und Leistungsverbesserungen
+            - XXX
+            - XXX
+            - XXX
             
             ## Downloads
             - **Windows Installer:** SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
             - **ZIP-Paket:** SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
-            - **Quellcode:** SC-Griefing-Counter-Source-${{ steps.get_version.outputs.app_version }}.zip
+            - **Quellcode:** Automatisch von GitHub bereitgestellt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
