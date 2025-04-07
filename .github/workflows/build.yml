@@ -85,57 +85,6 @@ jobs:
           "app_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           echo "Version: $version"
 
-      - name: Generate Changelog
-        id: changelog
-        shell: pwsh
-        run: |
-          # Alle Tags finden und sortieren
-          $allTags = git tag --sort=-creatordate
-          
-          # Aktuelle Tag-Version
-          $currentTag = "v${{ steps.get_version.outputs.app_version }}"
-          
-          # Vorheriges Tag finden (falls vorhanden)
-          $previousTag = $null
-          $foundCurrent = $false
-          
-          foreach ($tag in $allTags) {
-            if ($foundCurrent) {
-              $previousTag = $tag
-              break
-            }
-            
-            if ($tag -eq $currentTag) {
-              $foundCurrent = $true
-            }
-          }
-          
-          # Commit-Range für Changelog bestimmen
-          $commitRange = ""
-          if ($previousTag) {
-            $commitRange = "$previousTag..$currentTag"
-            Write-Host "Generiere Changelog für Commits zwischen $previousTag und $currentTag"
-          } else {
-            # Wenn kein vorheriges Tag existiert, alle Commits bis zum aktuellen Tag verwenden
-            $commitRange = "$currentTag"
-            Write-Host "Generiere Changelog für alle Commits bis $currentTag"
-          }
-          
-          # Commit-Beschreibungen extrahieren
-          $commits = git log --pretty=format:"- %s [%h]" $commitRange
-          
-          # Erstelle formatierten Changelog
-          $changelog = "## Änderungen seit $previousTag`n`n"
-          $changelog += $commits -join "`n"
-          $changelog += "`n`n"
-          
-          # Ausgabe für spätere Verwendung speichern
-          $changelogEscaped = $changelog -replace '%', '%25' -replace "`n", '%0A' -replace "`r", ''
-          "changelog=$changelogEscaped" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          
-          Write-Host "Changelog generiert:"
-          Write-Host $changelog
-
       - name: Create version.json
         run: |
           $versionJson = @{
@@ -225,7 +174,10 @@ jobs:
           body: |
             # Release v${{ steps.get_version.outputs.app_version }}
             
-            ${{ steps.changelog.outputs.changelog }}
+            ## Änderungen
+            <!-- Trage hier die für Benutzer relevanten Änderungen manuell ein -->
+            - Verbesserte Benutzeroberfläche
+            - Fehlerbehebungen und Leistungsverbesserungen
             
             ## Downloads
             - **Windows Installer:** SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
