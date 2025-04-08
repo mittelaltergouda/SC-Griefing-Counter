@@ -167,9 +167,9 @@ jobs:
           name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
           body: |
             # Release v${{ steps.get_version.outputs.app_version }}
-            
-            ## Änderungen
-            <!-- Trage hier die für Benutzer relevanten Änderungen manuell ein -->
+              ## Änderungen
+            <!-- Trage hier NUR für Benutzer relevante Änderungen wie UI-Verbesserungen oder neue Funktionen ein. 
+                 Interne technische Änderungen gehören NICHT in diese Liste. -->
             - XXX
             - XXX
             - XXX
