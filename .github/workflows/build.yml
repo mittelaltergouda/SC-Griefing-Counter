@@ -163,13 +163,15 @@ jobs:
             SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
             dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
             dist/griefing_counter.exe.sha256
-            version.json
-          name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
+            version.json          name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
           body: |
             # Release v${{ steps.get_version.outputs.app_version }}
               ## Änderungen
             <!-- Trage hier NUR für Benutzer relevante Änderungen wie UI-Verbesserungen oder neue Funktionen ein. 
-                 Interne technische Änderungen gehören NICHT in diese Liste. -->
+                 Interne technische Änderungen gehören NICHT in diese Liste.
+                 
+                 Die relevanten Änderungen sollten aus den Commit-Beschreibungen seit dem letzten Release
+                 entnommen und benutzerfreundlich zusammengefasst werden. -->
             - XXX
             - XXX
             - XXX
