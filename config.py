@@ -43,9 +43,12 @@ def ensure_directories_exist():
     except Exception as e:
         print(f"Fehler beim Erstellen der Verzeichnisse: {e}")
         # Fallback: Verwende temporäres Verzeichnis
-        global APP_DATA_PATH, LOG_FOLDER, ERROR_LOG_FOLDER, GENERAL_LOG_FOLDER, DEBUG_LOG_FOLDER, CONFIG_FILE, DB_FOLDER
         import tempfile
         temp_dir = tempfile.gettempdir()
+        
+        # Globale Variablen deklarieren, bevor sie verwendet werden
+        global APP_DATA_PATH, LOG_FOLDER, ERROR_LOG_FOLDER, GENERAL_LOG_FOLDER, DEBUG_LOG_FOLDER, CONFIG_FILE, DB_FOLDER
+        
         APP_DATA_PATH = os.path.join(temp_dir, "SC-Griefing-Counter")
         LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
         ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
