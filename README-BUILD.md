@@ -27,6 +27,22 @@ APP_VERSION = "x.y.z"  # Replace x.y.z with the new version number
 ```
 
 Also, you need to update the following files:
+- The `CHANGELOG.md` file to include the changes for the new version. Add a new section following the format:
+  ```
+  ## [x.y.z] - YYYY-MM-DD
+  ### Hinzugefügt
+  - New feature 1
+  - New feature 2
+  
+  ### Geändert
+  - Changed feature 1
+  - Changed feature 2
+  
+  ### Behoben
+  - Fixed issue 1
+  - Fixed issue 2
+  ```
+  The changelog entries should be based on the commits since the last release, but written in a user-friendly way that focuses on the benefits and improvements for the end user, not on technical implementation details.
 - The `.github/workflows/build.yml` file under the "Create GitHub Release" section to include the relevant user-facing changes like UI improvements or new features. These changes should be summarized from the commit descriptions since the last release.
 - The `SECURITY.md` file to update the supported versions table to include the new version.
 
