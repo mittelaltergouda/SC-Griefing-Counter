@@ -93,14 +93,17 @@ jobs:
             release_date = (Get-Date -Format "yyyy-MM-dd")
             changelog = "Version ${{ steps.get_version.outputs.app_version }} ist verfügbar."
           } | ConvertTo-Json
-          $versionJson | Out-File -FilePath version.json -Encoding utf8
-
-      - name: Build Applications with PyInstaller
+          $versionJson | Out-File -FilePath version.json -Encoding utf8      - name: Build Applications with PyInstaller
         run: |
           # Hauptanwendung kompilieren
           pyinstaller "--name=griefing_counter" "--noconfirm" "--windowed" `
             "--hidden-import=tkinter" "--hidden-import=tkcalendar" `
             "--hidden-import=tzdata" "--hidden-import=babel.numbers" `
+            "--hidden-import=config" "--hidden-import=database" `
+            "--hidden-import=log_processor" "--hidden-import=stats" `
+            "--hidden-import=watchdog_handler" "--hidden-import=update_checker" `
+            "--hidden-import=logger" "--hidden-import=ui_constants" `
+            "--hidden-import=npc_handler" `
             "--add-data=LICENSE.txt;." "--add-data=README.md;." `
             "griefing_counter_tk.py"
 
