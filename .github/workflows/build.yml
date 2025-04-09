@@ -161,6 +161,34 @@ jobs:
         run: |
           Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip" -Force
 
+      - name: Extract Changelog for Current Version
+        id: extract_changelog
+        shell: pwsh
+        run: |
+          $version = "${{ steps.get_version.outputs.app_version }}"
+          $changelogContent = Get-Content -Path "CHANGELOG.md" -Raw
+          
+          # Suchmuster für die aktuelle Version im Changelog
+          $pattern = "(?s)## \[$version\].*?(## \[|$)"
+          
+          if ($changelogContent -match $pattern) {
+            $versionChangelog = $matches[0]
+            # Entferne den nächsten Versionseintrag, falls vorhanden (Ende des Matches)
+            $versionChangelog = $versionChangelog -replace "## \[(?!\$version\]).*$", ""
+            
+            # Formatiere für den Output
+            $versionChangelog = $versionChangelog.Trim()
+            
+            # Speichere als Ausgabe
+            $versionChangelog = $versionChangelog -replace "`r`n", "%0A"
+            "changelog=$versionChangelog" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            
+            Write-Host "Changelog für Version $version gefunden und extrahiert"
+          } else {
+            Write-Host "Keine Changelog-Einträge für Version $version gefunden"
+            "changelog=Keine detaillierten Änderungen verfügbar" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
@@ -175,14 +203,7 @@ jobs:
             # Release v${{ steps.get_version.outputs.app_version }}
             
             ## Änderungen
-            <!-- Trage hier NUR für Benutzer relevante Änderungen wie UI-Verbesserungen oder neue Funktionen ein. 
-                 Interne technische Änderungen gehören NICHT in diese Liste.
-                 
-                 Die relevanten Änderungen sollten aus den Commit-Beschreibungen seit dem letzten Release
-                 entnommen und benutzerfreundlich zusammengefasst werden. -->
-            - Verbesserte Dokumentation mit getrenntem Englisch/Deutsch-Inhalt
-            - Aktualisierte Sicherheitsrichtlinien mit einer Antwortzeit von 96 Stunden
-            - Optimierte Benutzeroberfläche und Leistungsverbesserungen
+            ${{ steps.extract_changelog.outputs.changelog }}
             
             ## Downloads
             - **Windows Installer:** SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe

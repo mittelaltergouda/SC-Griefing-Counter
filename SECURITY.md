@@ -6,8 +6,8 @@ Use this section to tell people about which versions of your project are current
 
 | Version | Supported          |
 | ------- | ------------------ |
-| ≥ 0.7.10 | :white_check_mark: |
-| < 0.7.10 | :x:                |
+| ≥ 0.7.11 | :white_check_mark: |
+| < 0.7.11 | :x:                |
 
 ## Reporting a Vulnerability
 
