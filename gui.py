@@ -550,6 +550,9 @@ class GriefingCounterApp(tk.Tk):
         self.auto_refresh_running = True
         self.logger.info("Auto-Refresh-Loop gestartet")
         
+        # Setze den Countdown-Text auf den aktiven Status
+        self.after(0, lambda: self.var_countdown.set("Initializing refresh..."))
+        
         try:
             while self.auto_refresh_running:
                 interval = self.var_refresh_interval.get()
@@ -562,7 +565,9 @@ class GriefingCounterApp(tk.Tk):
                 # Countdown starten
                 while self.current_countdown > 1 and self.auto_refresh_running:
                     # GUI-Aktualisierung aus dem Thread heraus mit after()
-                    self.after(0, lambda count=self.current_countdown-1: 
+                    current_count = self.current_countdown - 1
+                    # Verwende eine separate Variable für jeden Lambda-Aufruf
+                    self.after(0, lambda count=current_count: 
                               self.var_countdown.set(f"Next refresh: {count} sec"))
                     
                     time.sleep(1)
@@ -584,9 +589,14 @@ class GriefingCounterApp(tk.Tk):
                     self.after(0, self.refresh_data)
         except Exception as e:
             self.logger.error(f"Fehler im Auto-Refresh-Loop: {str(e)}", exc_info=True)
-            # Versuche, den Loop wieder zu starten
-            self.after(5000, lambda: threading.Thread(target=self.auto_refresh_loop, daemon=True).start())
+            # Bei einem Fehler den Countdown-Text zurücksetzen
+            self.after(0, lambda: self.var_countdown.set("Timer error - restarting..."))
+            # Nach einer kurzen Verzögerung den Thread neu starten
+            self.after(3000, lambda: self.restart_auto_refresh())
+            return
         
+        # Wenn der Loop normal beendet wird
+        self.after(0, lambda: self.var_countdown.set("Auto refresh stopped"))
         self.logger.info("Auto-Refresh-Loop beendet")
 
     def update_stats(self):
@@ -802,6 +812,22 @@ class GriefingCounterApp(tk.Tk):
         else:
             # Wenn kein Name eingegeben wurde, erneut nachfragen
             self.after(500, self.show_player_name_dialog)
+
+    def restart_auto_refresh(self):
+        """Startet den Auto-Refresh-Thread sicher neu, wenn Fehler auftreten."""
+        self.logger.info("Auto-Refresh-Thread wird neu gestartet...")
+        
+        # Sicherstellen, dass der alte Thread beendet wird
+        self.auto_refresh_running = False
+        time.sleep(1)  # Kurze Pause, um sicherzustellen, dass der alte Thread Zeit hat, zu beenden
+        
+        # Variable zurücksetzen
+        self.after(0, lambda: self.var_countdown.set("Restarting auto refresh..."))
+        
+        # Neuen Thread starten
+        self.auto_refresh_running = True
+        threading.Thread(target=self.auto_refresh_loop, daemon=True).start()
+        self.logger.info("Auto-Refresh-Thread wurde neu gestartet")
 
 def start_gui():
     """Entry point für die Tkinter-App."""
