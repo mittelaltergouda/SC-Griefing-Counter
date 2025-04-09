@@ -1,0 +1,192 @@
+name: Build und Release SC Griefing Counter
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Vollständige Git-Historie abrufen, um Zugriff auf alle Commits zu haben
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller==6.3.0
+          pip install requests packaging
+          pip install watchdog tkcalendar
+          pip install tzdata
+          
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          # Inno Setup herunterladen und installieren (mit erweitertem Error-Handling)
+          $innoUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+          $innoPath = "innosetup.exe"
+          
+          Write-Host "Downloading Inno Setup from $innoUrl"
+          try {
+            Invoke-WebRequest -Uri $innoUrl -OutFile $innoPath -TimeoutSec 120
+            if (!(Test-Path $innoPath)) {
+              throw "Failed to download Inno Setup installer"
+            }
+          } catch {
+            Write-Error "Failed to download Inno Setup: $_"
+            exit 1
+          }
+          
+          Write-Host "Installing Inno Setup with /VERYSILENT /SUPPRESSMSGBOXES /NORESTART options"
+          try {
+            $process = Start-Process -FilePath $innoPath -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -PassThru -Wait -NoNewWindow
+            $exitCode = $process.ExitCode
+            
+            if ($exitCode -ne 0) {
+              throw "Inno Setup installation failed with exit code $exitCode"
+            }
+          } catch {
+            Write-Error "Error installing Inno Setup: $_"
+            exit 1
+          }
+          
+          # Überprüfe, ob die Inno Setup-Installation erfolgreich war
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $isccPath)) {
+            Write-Error "Inno Setup ISCC compiler not found at expected location: $isccPath"
+            exit 1
+          }
+          
+          Write-Host "Inno Setup successfully installed"
+
+      - name: Extract Version from Tag
+        id: get_version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -match "refs/tags/v(.+)") {
+            $version = $matches[1]
+          } else {
+            $version = "0.8.0"  # Fallback-Version
+          }
+          "app_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          echo "Version: $version"
+
+      - name: Create version.json
+        shell: pwsh
+        run: |
+          $versionJson = @{
+            latest_version = "${{ steps.get_version.outputs.app_version }}"
+            download_url = "https://github.com/${{ github.repository_owner }}/SC-Griefing-Counter/releases/download/v${{ steps.get_version.outputs.app_version }}/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe"
+            release_date = (Get-Date -Format "yyyy-MM-dd")
+            changelog = "Version ${{ steps.get_version.outputs.app_version }} ist verfügbar."
+          } | ConvertTo-Json
+          $versionJson | Out-File -FilePath version.json -Encoding utf8
+
+      - name: Build Applications with PyInstaller
+        run: |
+          # Hauptanwendung kompilieren
+          pyinstaller "--name=griefing_counter" "--noconfirm" "--windowed" `
+            "--hidden-import=tkinter" "--hidden-import=tkcalendar" `
+            "--hidden-import=tzdata" "--hidden-import=babel.numbers" `
+            "--hidden-import=config" "--hidden-import=database" `
+            "--hidden-import=log_processor" "--hidden-import=stats" `
+            "--hidden-import=watchdog_handler" "--hidden-import=update_checker" `
+            "--hidden-import=logger" "--hidden-import=ui_constants" `
+            "--hidden-import=npc_handler" `
+            "--add-data=LICENSE.txt;." "--add-data=README.md;." `
+            "griefing_counter_tk.py"
+
+          # Updater kompilieren
+          pyinstaller "--name=gc-updater" "--noconfirm" "--windowed" "gc-updater.py"
+
+          # Verschiebe und organisiere Dateien
+          mkdir -p dist/package
+          Copy-Item -Path "dist/griefing_counter/*" -Destination "dist/package/" -Force -Recurse
+          Copy-Item -Path "dist/gc-updater/*" -Destination "dist/package/" -Force -Recurse
+          Copy-Item -Path "version.json" -Destination "dist/package/" -Force
+
+      - name: Generate SHA256 Hash
+        run: |
+          $exePath = "dist/package/griefing_counter.exe"
+          if (Test-Path $exePath) {
+            $hash = (Get-FileHash -Path $exePath -Algorithm SHA256).Hash.ToLower()
+            $hash | Out-File -FilePath "dist/package/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
+            $hash | Out-File -FilePath "dist/griefing_counter.exe.sha256" -Encoding utf8 -NoNewline
+            Write-Host "SHA256 hash erstellt: $hash"
+          }
+
+      - name: Create Inno Setup Installer
+        run: |
+          $innoScript = @"
+          [Setup]
+          AppName=SC Griefing Counter
+          AppVersion=${{ steps.get_version.outputs.app_version }}
+          DefaultDirName={autopf}\SC Griefing Counter
+          DefaultGroupName=SC Griefing Counter
+          UninstallDisplayIcon={app}\griefing_counter.exe
+          Compression=lzma2
+          SolidCompression=yes
+          OutputDir=dist
+          OutputBaseFilename=SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}
+
+          [Files]
+          Source: "dist\package\*"; DestDir: "{app}"; Flags: recursesubdirs
+
+          [Icons]
+          Name: "{group}\SC Griefing Counter"; Filename: "{app}\griefing_counter.exe"
+          Name: "{group}\Updater"; Filename: "{app}\gc-updater.exe"
+          Name: "{commondesktop}\SC Griefing Counter"; Filename: "{app}\griefing_counter.exe"
+          "@
+
+          $innoScript | Out-File -FilePath "setup.iss" -Encoding utf8
+
+          # Installer erstellen
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
+
+      - name: Create Binaries ZIP Package
+        run: |
+          Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip" -Force
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
+            dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
+            dist/griefing_counter.exe.sha256
+            version.json
+          name: SC Griefing Counter v${{ steps.get_version.outputs.app_version }}
+          body: |
+            # Release v${{ steps.get_version.outputs.app_version }}
+            
+            ## Änderungen
+            <!-- Trage hier NUR für Benutzer relevante Änderungen wie UI-Verbesserungen oder neue Funktionen ein. 
+                 Interne technische Änderungen gehören NICHT in diese Liste.
+                 
+                 Die relevanten Änderungen sollten aus den Commit-Beschreibungen seit dem letzten Release
+                 entnommen und benutzerfreundlich zusammengefasst werden. -->
+            - Verbesserte Dokumentation mit getrenntem Englisch/Deutsch-Inhalt
+            - Aktualisierte Sicherheitsrichtlinien mit einer Antwortzeit von 96 Stunden
+            - Optimierte Benutzeroberfläche und Leistungsverbesserungen
+            
+            ## Downloads
+            - **Windows Installer:** SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
+            - **ZIP-Paket:** SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
+            - **Quellcode:** Automatisch von GitHub bereitgestellt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
