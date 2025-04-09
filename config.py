@@ -34,6 +34,9 @@ DB_FOLDER = os.path.join(APP_DATA_PATH, "databases")
 # Verschoben in eine Funktion, um PyArmor-Kompatibilität zu verbessern
 def ensure_directories_exist():
     """Stellt sicher, dass alle benötigten Verzeichnisse existieren."""
+    # Globale Variablen MÜSSEN vor ihrer Verwendung deklariert werden
+    global APP_DATA_PATH, LOG_FOLDER, ERROR_LOG_FOLDER, GENERAL_LOG_FOLDER, DEBUG_LOG_FOLDER, CONFIG_FILE, DB_FOLDER
+    
     try:
         os.makedirs(APP_DATA_PATH, exist_ok=True)
         os.makedirs(ERROR_LOG_FOLDER, exist_ok=True)
@@ -44,12 +47,15 @@ def ensure_directories_exist():
         print(f"Fehler beim Erstellen der Verzeichnisse: {e}")
         # Fallback: Verwende temporäres Verzeichnis
         import tempfile
+        
         temp_dir = tempfile.gettempdir()
-        
-        # Globale Variablen deklarieren, bevor sie verwendet werden
-        global APP_DATA_PATH, LOG_FOLDER, ERROR_LOG_FOLDER, GENERAL_LOG_FOLDER, DEBUG_LOG_FOLDER, CONFIG_FILE, DB_FOLDER
-        
         APP_DATA_PATH = os.path.join(temp_dir, "SC-Griefing-Counter")
+        LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
+        ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
+        GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
+        DEBUG_LOG_FOLDER = os.path.join(LOG_FOLDER, "debug")
+        CONFIG_FILE = os.path.join(APP_DATA_PATH, "config.txt")
+        DB_FOLDER = os.path.join(APP_DATA_PATH, "databases")
         LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
         ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
         GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
