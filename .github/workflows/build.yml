@@ -172,16 +172,17 @@ jobs:
           $pattern = "(?s)## \[$version\].*?(## \[|$)"
           
           if ($changelogContent -match $pattern) {
-            $versionChangelog = $matches[0]
-            # Entferne den nächsten Versionseintrag, falls vorhanden (Ende des Matches)
+            $versionChangelog = $matches[0]            # Entferne den nächsten Versionseintrag, falls vorhanden (Ende des Matches)
             $versionChangelog = $versionChangelog -replace "## \[(?!\$version\]).*$", ""
             
             # Formatiere für den Output
             $versionChangelog = $versionChangelog.Trim()
             
-            # Speichere als Ausgabe
-            $versionChangelog = $versionChangelog -replace "`r`n", "%0A"
-            "changelog=$versionChangelog" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            # Speichere als Ausgabe mit multiline Output-Format für GitHub Actions
+            $delimiter = "_CHANGELOG_DELIMITER_"
+            "changelog<<$delimiter" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            $versionChangelog | Out-File -FilePath $env:GITHUB_OUTPUT -Append -NoNewline
+            "$delimiter" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
             
             Write-Host "Changelog für Version $version gefunden und extrahiert"
           } else {
