@@ -782,24 +782,109 @@ class GriefingCounterApp(tk.Tk):
             self.logger.error(f"Fehler beim Update-Check: {str(e)}")
             # Trotz Fehler wird der nächste Check für später geplant
             self.after(24 * 60 * 60 * 1000, self.check_for_updates)
-
+            
     def show_player_name_dialog(self):
-        """Zeigt einen Dialog an, in dem der Benutzer seinen Spielernamen eingeben muss."""
-        from tkinter import simpledialog
+        """Zeigt einen Dialog an, in dem der Benutzer seinen Spielernamen und SC-Pfad eingeben muss."""
+        import tkinter as tk
+        from tkinter import simpledialog, filedialog, messagebox
         
-        # Dialog anzeigen und auf Eingabe warten
-        player_name = simpledialog.askstring(
-            "Spielername benötigt", 
-            "Bitte geben Sie Ihren Star Citizen Spielernamen ein:",
-            initialvalue=self.var_player_name.get()
-        )
+        # Erstelle einen benutzerdefinierten Dialog
+        setup_dialog = tk.Toplevel(self)
+        setup_dialog.title("SC Griefing Counter - Ersteinrichtung")
+        setup_dialog.geometry("550x300")
+        setup_dialog.transient(self)
+        setup_dialog.grab_set()  # Modal-Dialog
         
-        # Wenn der Benutzer einen Namen eingegeben hat
-        if player_name:
+        # Titel und Erklärung
+        tk.Label(setup_dialog, text="Willkommen beim SC Griefing Counter!", 
+                font=("Arial", 12, "bold")).pack(pady=10)
+        tk.Label(setup_dialog, text="Bitte geben Sie die folgenden Informationen ein:").pack(pady=5)
+        
+        # Frame für Eingabefelder erstellen
+        input_frame = tk.Frame(setup_dialog)
+        input_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=5)
+        
+        # Spielername Eingabe
+        tk.Label(input_frame, text="Star Citizen Spielername:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        name_var = tk.StringVar(value=self.var_player_name.get())
+        name_entry = tk.Entry(input_frame, textvariable=name_var, width=30)
+        name_entry.grid(row=0, column=1, sticky=tk.W, pady=5)
+        
+        # SC-Pfad Eingabe
+        tk.Label(input_frame, text="Star Citizen LIVE-Ordner:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        path_var = tk.StringVar(value=config.LIVE_FOLDER)
+        path_entry = tk.Entry(input_frame, textvariable=path_var, width=30)
+        path_entry.grid(row=1, column=1, sticky=tk.W, pady=5)
+        
+        # Button zum Durchsuchen
+        def browse_folder():
+            folder_path = filedialog.askdirectory(
+                title="Star Citizen LIVE-Ordner auswählen",
+                initialdir=path_var.get()
+            )
+            if folder_path:
+                path_var.set(folder_path)
+        
+        browse_btn = tk.Button(input_frame, text="Durchsuchen...", command=browse_folder)
+        browse_btn.grid(row=1, column=2, padx=5, pady=5)
+        
+        # Hinweis zum SC-Pfad
+        hint_text = (f"Standardpfad: {config.DEFAULT_SC_PATH}\n"
+                    "Dies ist der Ordner, in dem sich die Star Citizen Spiel-Logdateien befinden.")
+        hint_label = tk.Label(input_frame, text=hint_text, justify=tk.LEFT, wraplength=500)
+        hint_label.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=5)
+        
+        # Button-Frame
+        btn_frame = tk.Frame(setup_dialog)
+        btn_frame.pack(fill=tk.X, padx=20, pady=(0, 20))
+        
+        def save_settings():
+            player_name = name_var.get().strip()
+            sc_path = path_var.get().strip()
+            
+            # Validierung: Spielername eingegeben?
+            if not player_name:
+                messagebox.showerror("Fehler", "Bitte geben Sie einen Spielernamen ein.")
+                return
+              # Validierung: Pfad existiert?
+            if not os.path.exists(sc_path):
+                result = messagebox.askyesno(
+                    "Warnung", 
+                    f"Der Pfad {sc_path} existiert nicht.\nMöchten Sie den Standardpfad verwenden?",
+                    icon="warning"
+                )
+                if result:
+                    sc_path = config.DEFAULT_SC_PATH
+                else:
+                    return
+            
+            # Zusätzliche Validierung: Enthält der Pfad die Game.log oder logbackups?
+            game_log_path = os.path.join(sc_path, config.GAME_LOG_FILENAME)
+            logbackups_path = os.path.join(sc_path, "logbackups")
+            
+            if not (os.path.exists(game_log_path) or os.path.exists(logbackups_path)):
+                result = messagebox.askyesno(
+                    "Warnung",
+                    f"Der Pfad {sc_path} scheint kein gültiger Star Citizen LIVE-Ordner zu sein.\n"
+                    "Es wurden weder Game.log noch der logbackups-Ordner gefunden.\n\n"
+                    "Möchten Sie diesen Pfad trotzdem verwenden?",
+                    icon="warning"
+                )
+                if not result:
+                    return
+            
+            # Speichern der Einstellungen
             self.logger.info(f"Spielername wurde gesetzt auf: {player_name}")
+            self.logger.info(f"SC-Pfad wurde gesetzt auf: {sc_path}")
+            
             self.var_player_name.set(player_name)
             config.CURRENT_PLAYER_NAME = player_name
+            config.LIVE_FOLDER = sc_path
+            config.BACKUP_FOLDER = os.path.join(sc_path, "logbackups")
             config.save_config()
+            
+            # Dialog schließen
+            setup_dialog.destroy()
             
             # Initialisiere die Datenbank mit dem neuen Spielernamen
             try:
@@ -809,8 +894,19 @@ class GriefingCounterApp(tk.Tk):
             except Exception as e:
                 self.logger.error(f"Fehler bei Datenbankinitialisierung: {str(e)}")
                 self.show_error(f"Datenbankfehler: {str(e)}")
-        else:
-            # Wenn kein Name eingegeben wurde, erneut nachfragen
+        
+        # Speichern-Button
+        save_btn = tk.Button(btn_frame, text="Speichern und Starten", command=save_settings)
+        save_btn.pack(side=tk.RIGHT)
+        
+        # Fokus auf Spielernamen setzen
+        name_entry.focus_set()
+        
+        # Dialog wartet auf Benutzeraktion
+        self.wait_window(setup_dialog)
+        
+        # Wenn Dialog geschlossen wurde, aber kein Spielername vorhanden ist, erneut anzeigen
+        if not config.CURRENT_PLAYER_NAME:
             self.after(500, self.show_player_name_dialog)
 
     def restart_auto_refresh(self):

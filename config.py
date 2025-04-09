@@ -11,8 +11,11 @@ def get_app_data_path():
     app_data = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), app_name)
     return app_data
 
-# Folders for logs
-LIVE_FOLDER = r"C:\Program Files\Roberts Space Industries\StarCitizen\LIVE"
+# Standard Star Citizen Pfad
+DEFAULT_SC_PATH = r"C:\Program Files\Roberts Space Industries\StarCitizen\LIVE"
+
+# Folders for logs - wird später ggf. aus Konfiguration geladen
+LIVE_FOLDER = DEFAULT_SC_PATH 
 BACKUP_FOLDER = os.path.join(LIVE_FOLDER, "logbackups")
 GAME_LOG_FILENAME = "Game.log"
 
@@ -33,7 +36,6 @@ DB_FOLDER = os.path.join(APP_DATA_PATH, "databases")
 
 # Verschoben in eine Funktion, um PyArmor-Kompatibilität zu verbessern
 def ensure_directories_exist():
-    """Stellt sicher, dass alle benötigten Verzeichnisse existieren."""
     # Globale Variablen MÜSSEN vor ihrer Verwendung deklariert werden
     global APP_DATA_PATH, LOG_FOLDER, ERROR_LOG_FOLDER, GENERAL_LOG_FOLDER, DEBUG_LOG_FOLDER, CONFIG_FILE, DB_FOLDER
     
@@ -50,12 +52,6 @@ def ensure_directories_exist():
         
         temp_dir = tempfile.gettempdir()
         APP_DATA_PATH = os.path.join(temp_dir, "SC-Griefing-Counter")
-        LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
-        ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
-        GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
-        DEBUG_LOG_FOLDER = os.path.join(LOG_FOLDER, "debug")
-        CONFIG_FILE = os.path.join(APP_DATA_PATH, "config.txt")
-        DB_FOLDER = os.path.join(APP_DATA_PATH, "databases")
         LOG_FOLDER = os.path.join(APP_DATA_PATH, "Logs")
         ERROR_LOG_FOLDER = os.path.join(LOG_FOLDER, "errors")
         GENERAL_LOG_FOLDER = os.path.join(LOG_FOLDER, "general")
@@ -84,7 +80,7 @@ NPC_CATEGORIES = [
 
 def load_config():
     """Loads the configuration file and sets global variables."""
-    global CURRENT_PLAYER_NAME, LOGGING_ENABLED, LOGGING_LEVEL, REFRESH_INTERVAL
+    global CURRENT_PLAYER_NAME, LOGGING_ENABLED, LOGGING_LEVEL, REFRESH_INTERVAL, LIVE_FOLDER, BACKUP_FOLDER
     
     # Stelle zuerst sicher, dass die benötigten Verzeichnisse existieren
     ensure_directories_exist()
@@ -106,6 +102,17 @@ def load_config():
                     except ValueError:
                         # Bei Fehler Standard verwenden
                         pass
+                elif line.startswith("SC_PATH="):
+                    sc_path = line.split("=")[1]
+                    if os.path.exists(sc_path):
+                        # Prüfe, ob es sich um einen gültigen SC-Pfad handelt
+                        game_log_path = os.path.join(sc_path, GAME_LOG_FILENAME)
+                        if os.path.exists(game_log_path) or os.path.exists(os.path.join(sc_path, "logbackups")):
+                            LIVE_FOLDER = sc_path
+                            BACKUP_FOLDER = os.path.join(LIVE_FOLDER, "logbackups")
+                        else:
+                            print(f"Warnung: Der Pfad {sc_path} scheint kein gültiger Star Citizen LIVE-Ordner zu sein.")
+                            # Behalte den aktuellen Pfad bei
     else:
         save_config()
 
@@ -125,7 +132,10 @@ def save_config():
         f.write(f"LOGGING_LEVEL={LOGGING_LEVEL}\n\n")
         
         f.write("# Automatische Aktualisierungsintervall in Sekunden\n")
-        f.write(f"REFRESH_INTERVAL={REFRESH_INTERVAL}\n")
+        f.write(f"REFRESH_INTERVAL={REFRESH_INTERVAL}\n\n")
+        
+        f.write("# Star Citizen Installationspfad\n")
+        f.write(f"SC_PATH={LIVE_FOLDER}\n")
 
 def get_db_name():
     """
