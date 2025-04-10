@@ -105,15 +105,15 @@ def start_updater():
                 subprocess.Popen([sys.executable, updater_path], 
                                creationflags=subprocess.CREATE_NEW_CONSOLE)
                 sys.exit(0)
-                return True
         
         if os.path.exists(updater_path):
             logger.info(f"Starte Updater: {updater_path}")
             # Führe den Updater als neuen Prozess aus
-            subprocess.Popen([updater_path], 
-                           creationflags=subprocess.CREATE_NEW_CONSOLE)
+            if os.name == 'nt':  # Windows
+                subprocess.Popen([updater_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:
+                subprocess.Popen([updater_path])
             sys.exit(0)
-            return True
         else:
             logger.error(f"Updater nicht gefunden: {updater_path}")
             return False
