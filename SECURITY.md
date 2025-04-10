@@ -6,8 +6,8 @@ Use this section to tell people about which versions of your project are current
 
 | Version | Supported          |
 | ------- | ------------------ |
-| ≥ 0.7.11 | :white_check_mark: |
-| < 0.7.11 | :x:                |
+| ≥ 0.7.14 | :white_check_mark: |
+| < 0.7.14 | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -25,33 +25,3 @@ If you discover a security vulnerability in SC-Griefing-Counter, we ask that you
 - We will investigate the vulnerability and work with you to clarify additional details.
 - Once the issue is confirmed, we will work on a solution and keep you informed of progress.
 - After fixing the security vulnerability, we will publish an update with relevant information and acknowledgments to the discoverer.
-
----
-
-# Sicherheitsrichtlinie
-
-## Unterstützte Versionen
-
-In diesem Abschnitt wird angegeben, welche Versionen des Projekts derzeit mit Sicherheitsupdates unterstützt werden.
-
-| Version | Unterstützt          |
-| ------- | ------------------ |
-| ≥ 0.7.10 | :white_check_mark: |
-| < 0.7.10 | :x:                |
-
-## Melden einer Sicherheitslücke
-
-### Wie melde ich eine Sicherheitslücke?
-
-Wenn Sie eine Sicherheitslücke im SC-Griefing-Counter entdecken, bitten wir Sie, diese verantwortungsvoll zu melden:
-
-1. **Erstellen Sie ein Issue**: Erstellen Sie ein Issue im GitHub-Repository mit dem Label "security".
-2. **Beschreiben Sie das Problem**: Geben Sie eine detaillierte Beschreibung der Sicherheitslücke, einschließlich Schritte zur Reproduktion, mögliche Auswirkungen und, falls bekannt, Vorschläge zur Behebung.
-3. **Vertrauliche Informationen**: Bei hochsensiblen Sicherheitsproblemen kontaktieren Sie uns bitte direkt, anstatt öffentliche Issues zu erstellen.
-
-### Was passiert danach?
-
-- Sie erhalten innerhalb von 96 Stunden eine erste Antwort.
-- Wir werden die Sicherheitslücke untersuchen und mit Ihnen zusammenarbeiten, um weitere Details zu klären.
-- Sobald das Problem bestätigt wurde, arbeiten wir an einer Lösung und informieren Sie über den Fortschritt.
-- Nach Behebung der Sicherheitslücke veröffentlichen wir ein Update mit entsprechenden Informationen und Danksagungen an den Entdecker.

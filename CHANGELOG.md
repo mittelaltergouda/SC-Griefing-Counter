@@ -1,22 +1,22 @@
 # Changelog
 
-Alle wichtigen Änderungen am SC-Griefing-Counter-Projekt werden in dieser Datei dokumentiert.
+All significant changes to the SC-Griefing-Counter project are documented in this file.
 
-Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.7.11] - 2025-04-09
-### Hinzugefügt
-- Automatische Extraktion des Changelogs für Versionen im Release-Prozess
-- Verbesserte Anweisungen zur Aktualisierung des Changelogs für neue Versionen
-- Zusätzliche versteckte Importe für die korrekte Kompilierung mit PyInstaller
+### Added
+- Automatic extraction of the changelog for versions in the release process
+- Improved instructions for updating the changelog for new versions
+- Additional hidden imports for correct compilation with PyInstaller
 
-### Geändert
-- Verbesserte Wartbarkeit durch Aktualisierung der Konfigurationsstruktur
-- Optimierte Verzeichnisverwaltung für Anwendungsdaten
-- Aktualisierte Sicherheitsrichtlinien
+### Changed
+- Improved maintainability through updated configuration structure
+- Optimized directory management for application data
+- Updated security policies
 
-### Behoben
-- Fehler in der Funktion zur Erstellung temporärer Verzeichnisse behoben
+### Fixed
+- Fixed error in the function for creating temporary directories
 
 ## [0.7.12] - 2025-04-10
 ### Added
@@ -33,3 +33,15 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 - Auto-update mechanism now works correctly in protected directories like Program Files
 - Improved logging for the update process
 - Enhanced error handling during update installation
+
+## [0.7.14] - 2025-04-10
+### Added
+- Cross-platform support for the update mechanism
+
+### Changed
+- Optimized startup routine for different operating systems
+- More robust error handling when cleaning AppData after updates
+
+### Fixed
+- Removed unreachable code in the update checker
+- Replaced Windows-specific implementations with platform-independent code
