@@ -167,9 +167,10 @@ jobs:
         run: |
           $version = "${{ steps.get_version.outputs.app_version }}"
           $changelogContent = Get-Content -Path "CHANGELOG.md" -Raw
+            # Suchmuster für die aktuelle Version im Changelog
+          $pattern = "(?s)## \[$version\].*?(## \[|$)"
           
-          # Suchmuster für die aktuelle Version im Changelog
-          $pattern = "(?s)## \[$version\].*?(## \[|$)"            if ($changelogContent -match $pattern) {
+          if ($changelogContent -match $pattern) {
             $versionChangelog = $matches[0]
             # Entferne den nächsten Versionseintrag, falls vorhanden (Ende des Matches)
             $versionChangelog = $versionChangelog -replace "## \[(?!\$version\]).*$", ""
@@ -177,10 +178,10 @@ jobs:
             # Formatiere für den Output
             $versionChangelog = $versionChangelog.Trim()
             
-            # Speichere als Output mit einfacherem Format
-            "changelog<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            # Speichere als Output mit korrektem Delimiter
+            "changelog<<_CHANGELOG_DELIMITER_" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
             $versionChangelog | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "_CHANGELOG_DELIMITER_" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
             
             Write-Host "Changelog für Version $version gefunden und extrahiert"
           } else {
