@@ -169,8 +169,7 @@ jobs:
           $changelogContent = Get-Content -Path "CHANGELOG.md" -Raw
           
           # Suchmuster für die aktuelle Version im Changelog
-          $pattern = "(?s)## \[$version\].*?(## \[|$)"
-            if ($changelogContent -match $pattern) {
+          $pattern = "(?s)## \[$version\].*?(## \[|$)"            if ($changelogContent -match $pattern) {
             $versionChangelog = $matches[0]
             # Entferne den nächsten Versionseintrag, falls vorhanden (Ende des Matches)
             $versionChangelog = $versionChangelog -replace "## \[(?!\$version\]).*$", ""
@@ -179,8 +178,9 @@ jobs:
             $versionChangelog = $versionChangelog.Trim()
             
             # Speichere als Output mit einfacherem Format
-            $versionChangelog = $versionChangelog -replace "`n", "%0A"
-            "changelog=$versionChangelog" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "changelog<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            $versionChangelog | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
             
             Write-Host "Changelog für Version $version gefunden und extrahiert"
           } else {
