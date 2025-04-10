@@ -155,11 +155,9 @@ jobs:
           $innoScript | Out-File -FilePath "setup.iss" -Encoding utf8
 
           # Installer erstellen
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"
-
-      - name: Create Binaries ZIP Package
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "setup.iss"      - name: Create Binaries ZIP Package
         run: |
-          Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip" -Force
+          Compress-Archive -Path dist/package/* -DestinationPath "SC-Griefing-Counter-Portable-${{ steps.get_version.outputs.app_version }}.zip" -Force
 
       - name: Extract Changelog for Current Version
         id: extract_changelog
@@ -192,9 +190,8 @@ jobs:
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            SC-Griefing-Counter-${{ steps.get_version.outputs.app_version }}.zip
+        with:          files: |
+            SC-Griefing-Counter-Portable-${{ steps.get_version.outputs.app_version }}.zip
             dist/SC-Griefing-Counter-Setup-${{ steps.get_version.outputs.app_version }}.exe
             dist/griefing_counter.exe.sha256
             version.json
