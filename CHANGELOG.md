@@ -27,3 +27,9 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
 ### Fixed
 - Resolved syntax errors in the configuration file.
+
+## [0.7.13] - 2025-04-10
+### Fixed
+- Auto-update mechanism now works correctly in protected directories like Program Files
+- Improved logging for the update process
+- Enhanced error handling during update installation
