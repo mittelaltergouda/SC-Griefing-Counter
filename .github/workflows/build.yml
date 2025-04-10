@@ -186,8 +186,8 @@ jobs:
             
             Write-Host "Changelog für Version $version gefunden und extrahiert"
           } else {
-            Write-Host "Keine Changelog-Einträge für Version $version gefunden"
-            "changelog=Keine detaillierten Änderungen verfügbar" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "No Changelog-Entries for this version $version found"
+            "changelog=No detailed Change found" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           }
 
       - name: Create GitHub Release
@@ -203,7 +203,7 @@ jobs:
           body: |
             # Release v${{ steps.get_version.outputs.app_version }}
             
-            ## Änderungen
+            ## Changes
             ${{ steps.extract_changelog.outputs.changelog }}
             
             ## Downloads

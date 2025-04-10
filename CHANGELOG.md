@@ -4,16 +4,12 @@ Alle wichtigen Änderungen am SC-Griefing-Counter-Projekt werden in dieser Datei
 
 Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.0.0/).
 
-## [0.7.11] - 2025-04-09
-### Hinzugefügt
-- Automatische Extraktion des Changelogs für Versionen im Release-Prozess
-- Verbesserte Anweisungen zur Aktualisierung des Changelogs für neue Versionen
-- Zusätzliche versteckte Importe für die korrekte Kompilierung mit PyInstaller
+## [0.7.12] - 2025-04-10
+### Added
+- New function for improved Star Citizen path validation.
 
-### Geändert
-- Verbesserte Wartbarkeit durch Aktualisierung der Konfigurationsstruktur
-- Optimierte Verzeichnisverwaltung für Anwendungsdaten
-- Aktualisierte Sicherheitsrichtlinien
+### Changed
+- Enhanced user interface for initial setup.
 
-### Behoben
-- Fehler in der Funktion zur Erstellung temporärer Verzeichnisse behoben
+### Fixed
+- Resolved syntax errors in the configuration file.
