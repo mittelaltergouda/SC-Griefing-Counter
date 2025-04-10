@@ -175,3 +175,18 @@ def ensure_db_initialized():
         logger.error(str(e))
         # Exception hier abfangen, damit die Anwendung weiterlaufen kann
         # auch wenn keine DB-Initialisierung möglich ist
+
+def close_db():
+    """
+    Schließt alle offenen Datenbankverbindungen sauber.
+    Dies sollte aufgerufen werden, bevor die Anwendung beendet wird
+    oder wenn die Datenbank gelöscht werden soll.
+    """
+    # Da wir keine persistente Verbindung haben, müssen wir nichts aktiv schließen.
+    # Diese Funktion ist ein Platzhalter für zukünftige Implementierungen,
+    # falls wir zur persistenten Verbindung wechseln.
+    logger.info("Datenbankverbindungen werden geschlossen")
+    
+    # Stelle für zukünftige Implementierungen sicher, dass alle ausstehenden
+    # Transaktionen abgeschlossen sind, indem wir etwas warten
+    time.sleep(0.2)

@@ -200,6 +200,29 @@ class GriefingCounterApp(tk.Tk):
 
         self.btn_apply = ttk.Button(self.top_frame, text="Apply", command=self.on_apply_player_name)
         self.btn_apply.pack(side=tk.LEFT, padx=5)
+        
+        # Settings Frame - zweite Zeile für zusätzliche Einstellungen
+        self.settings_frame = tk.Frame(self)
+        self.settings_frame.pack(side=tk.TOP, fill=tk.X, pady=2)
+        
+        # Star Citizen Pfad
+        ttk.Label(self.settings_frame, text="SC Path:").pack(side=tk.LEFT, padx=5)
+        self.var_sc_path = tk.StringVar(value=config.LIVE_FOLDER)
+        self.entry_sc_path = ttk.Entry(self.settings_frame, textvariable=self.var_sc_path, width=40)
+        self.entry_sc_path.pack(side=tk.LEFT, padx=5)
+        
+        # Browse Button für SC Pfad
+        self.btn_browse = ttk.Button(self.settings_frame, text="Browse...", command=self.browse_sc_path)
+        self.btn_browse.pack(side=tk.LEFT, padx=2)
+        
+        # Apply SC Path Button
+        self.btn_apply_path = ttk.Button(self.settings_frame, text="Apply Path", command=self.on_apply_sc_path)
+        self.btn_apply_path.pack(side=tk.LEFT, padx=2)
+        
+        # Clear AppData Button
+        self.btn_clear_appdata = ttk.Button(self.settings_frame, text="Clear AppData", 
+                                          command=self.on_clear_appdata)
+        self.btn_clear_appdata.pack(side=tk.LEFT, padx=15)
 
         # Refresh Interval
         self.var_refresh_interval = tk.IntVar(value=config.REFRESH_INTERVAL)
@@ -758,6 +781,15 @@ class GriefingCounterApp(tk.Tk):
     def check_for_updates(self):
         """Prüft auf Updates und zeigt ggf. einen Dialog an"""
         try:
+            # Zuerst prüfen, ob nach einem Update AppData bereinigt werden muss
+            if update_checker.check_and_clear_after_update():
+                from tkinter import messagebox
+                messagebox.showinfo(
+                    "Update abgeschlossen",
+                    "Das Update wurde erfolgreich abgeschlossen.\n"
+                    "Die Anwendungsdaten wurden bereinigt, um Kompatibilität sicherzustellen."
+                )
+                
             self.logger.info(f"Prüfe auf Updates (aktuelle Version: {APP_VERSION})")
             update_available, latest_version, changelog = update_checker.check_for_updates(APP_VERSION)
             
@@ -813,7 +845,7 @@ class GriefingCounterApp(tk.Tk):
         # SC-Pfad Eingabe
         tk.Label(input_frame, text="Star Citizen LIVE-Ordner:").grid(row=1, column=0, sticky=tk.W, pady=5)
         path_var = tk.StringVar(value=config.LIVE_FOLDER)
-        path_entry = tk.Entry(input_frame, textvariable=path_var, width=30)
+        path_entry = ttk.Entry(input_frame, textvariable=path_var, width=30)
         path_entry.grid(row=1, column=1, sticky=tk.W, pady=5)
         
         # Button zum Durchsuchen
@@ -924,6 +956,116 @@ class GriefingCounterApp(tk.Tk):
         self.auto_refresh_running = True
         threading.Thread(target=self.auto_refresh_loop, daemon=True).start()
         self.logger.info("Auto-Refresh-Thread wurde neu gestartet")
+
+    def browse_sc_path(self):
+        """Öffnet einen Dialog zur Auswahl des Star Citizen Pfads"""
+        from tkinter import filedialog
+        folder_path = filedialog.askdirectory(
+            title="Star Citizen LIVE-Ordner auswählen",
+            initialdir=self.var_sc_path.get()
+        )
+        if folder_path:
+            self.var_sc_path.set(folder_path)
+            
+    def on_apply_sc_path(self):
+        """Anwenden des neuen Star Citizen Pfads"""
+        sc_path = self.var_sc_path.get().strip()
+        if not sc_path:
+            return
+            
+        # Pfad validieren
+        if not os.path.exists(sc_path):
+            from tkinter import messagebox
+            messagebox.showerror("Fehler", f"Der Pfad {sc_path} existiert nicht.")
+            return
+            
+        # Prüfen, ob es ein SC-Ordner sein könnte
+        game_log_path = os.path.join(sc_path, config.GAME_LOG_FILENAME)
+        logbackups_path = os.path.join(sc_path, "logbackups")
+        
+        if not (os.path.exists(game_log_path) or os.path.exists(logbackups_path)):
+            from tkinter import messagebox
+            result = messagebox.askyesno(
+                "Warnung",
+                f"Der Pfad {sc_path} scheint kein gültiger Star Citizen LIVE-Ordner zu sein.\n"
+                "Es wurden weder Game.log noch der logbackups-Ordner gefunden.\n\n"
+                "Möchten Sie diesen Pfad trotzdem verwenden?",
+                icon="warning"
+            )
+            if not result:
+                return
+                
+        # Speichern des neuen Pfads
+        self.logger.info(f"SC-Pfad wurde geändert auf: {sc_path}")
+        config.LIVE_FOLDER = sc_path
+        config.BACKUP_FOLDER = os.path.join(sc_path, "logbackups")
+        config.save_config()
+        
+        # Daten neu laden
+        threading.Thread(target=self.load_data, daemon=True).start()
+        
+    def on_clear_appdata(self):
+        """Löscht alle Daten aus dem AppData-Verzeichnis (Logs, Datenbank)"""
+        from tkinter import messagebox
+        
+        # Sicherheitsabfrage
+        result = messagebox.askyesno(
+            "AppData löschen",
+            "Sind Sie sicher, dass Sie alle Logs und Datenbanken löschen möchten?\n"
+            "Diese Aktion kann nicht rückgängig gemacht werden.",
+            icon="warning"
+        )
+        
+        if not result:
+            return
+            
+        try:
+            # Datenbank schließen, falls geöffnet
+            database.close_db()
+            
+            # Lösche Logs
+            if os.path.exists(config.LOG_FOLDER):
+                self.logger.info(f"Lösche Logs in: {config.LOG_FOLDER}")
+                for subfolder in [config.ERROR_LOG_FOLDER, config.GENERAL_LOG_FOLDER, config.DEBUG_LOG_FOLDER]:
+                    if os.path.exists(subfolder):
+                        for file in os.listdir(subfolder):
+                            file_path = os.path.join(subfolder, file)
+                            try:
+                                if os.path.isfile(file_path):
+                                    os.unlink(file_path)
+                            except Exception as e:
+                                self.logger.error(f"Fehler beim Löschen von {file_path}: {e}")
+            
+            # Lösche Datenbank
+            if os.path.exists(config.DB_FOLDER):
+                self.logger.info(f"Lösche Datenbanken in: {config.DB_FOLDER}")
+                for file in os.listdir(config.DB_FOLDER):
+                    file_path = os.path.join(config.DB_FOLDER, file)
+                    try:
+                        if os.path.isfile(file_path):
+                            os.unlink(file_path)
+                    except Exception as e:
+                        self.logger.error(f"Fehler beim Löschen von {file_path}: {e}")
+            
+            # Erfolgsmeldung
+            messagebox.showinfo(
+                "AppData gelöscht",
+                "Alle Logs und Datenbanken wurden erfolgreich gelöscht.\n"
+                "Die Anwendung wird neu gestartet."
+            )
+            
+            # Neustart der Anwendung
+            self.restart_application()
+            
+        except Exception as e:
+            self.logger.error(f"Fehler beim Löschen der AppData: {str(e)}")
+            messagebox.showerror("Fehler", f"Fehler beim Löschen der Daten: {str(e)}")
+    
+    def restart_application(self):
+        """Startet die Anwendung neu"""
+        self.destroy()
+        app = GriefingCounterApp()
+        app.mainloop()
 
 def start_gui():
     """Entry point für die Tkinter-App."""

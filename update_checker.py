@@ -11,14 +11,19 @@ import json
 import subprocess
 import requests
 import logging
+import shutil
 from packaging import version
 
 logger = logging.getLogger(__name__)
 
 # Der GitHub-Username und Repo-Name sollten in einer Konfigurationsdatei gespeichert
 # oder zur Laufzeit durch GitHub Actions gesetzt werden
-GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER', '')
+GITHUB_REPO_OWNER = os.environ.get('GITHUB_REPOSITORY_OWNER', 'mittelaltergouda')
 GITHUB_REPO_NAME = "SC-Griefing-Counter" # Verwende das Hauptrepo statt eines separaten Release-Repos
+
+# Datei, die anzeigt, dass ein Update durchgeführt wurde
+UPDATE_MARKER_FILE = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 
+                                  "SC-Griefing-Counter", "update_performed.marker")
 
 def check_for_updates(current_version):
     """
@@ -78,30 +83,129 @@ def check_for_updates(current_version):
 
 def start_updater():
     """
-    Startet den Updater (gc-updater.exe) und beendet die aktuelle Anwendung
+    Startet den Updater (gc-updater.exe) und beendet die aktuelle Anwendung.
+    Setzt auch einen Marker, der anzeigt, dass ein Update durchgeführt wurde.
     
     Returns:
         bool: True wenn der Updater erfolgreich gestartet wurde, sonst False
     """
     try:
+        # Markiere Update für späteres Aufräumen
+        mark_update_performed()
+        
         # Pfad zum Updater
         updater_path = os.path.join(os.path.dirname(sys.executable), "gc-updater.exe")
         
         # Für Entwicklungsumgebung (wenn nicht als exe ausgeführt)
         if not os.path.exists(updater_path) and os.path.basename(sys.executable) != "griefing_counter.exe":
-            updater_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gc-updater.exe")
-            
-        if not os.path.exists(updater_path):
+            updater_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gc-updater.py")
+            if os.path.exists(updater_path):
+                logger.info(f"Starte Updater im Entwicklungsmodus: {updater_path}")
+                # Führe den Python-Updater als neuen Prozess aus
+                subprocess.Popen([sys.executable, updater_path], 
+                               creationflags=subprocess.CREATE_NEW_CONSOLE)
+                sys.exit(0)
+                return True
+        
+        if os.path.exists(updater_path):
+            logger.info(f"Starte Updater: {updater_path}")
+            # Führe den Updater als neuen Prozess aus
+            subprocess.Popen([updater_path], 
+                           creationflags=subprocess.CREATE_NEW_CONSOLE)
+            sys.exit(0)
+            return True
+        else:
             logger.error(f"Updater nicht gefunden: {updater_path}")
             return False
-            
-        # Starte Updater
-        logger.info(f"Starte Updater: {updater_path}")
-        subprocess.Popen([updater_path])
-        
-        # Beende aktuelle Anwendung
-        sys.exit(0)
-        
     except Exception as e:
         logger.error(f"Fehler beim Starten des Updaters: {str(e)}")
         return False
+
+def mark_update_performed():
+    """
+    Erstellt eine Markierungsdatei, die anzeigt, dass ein Update durchgeführt wurde.
+    Diese Datei wird beim nächsten Start der Anwendung überprüft, um AppData zu bereinigen.
+    """
+    try:
+        # Stelle sicher, dass das Verzeichnis existiert
+        os.makedirs(os.path.dirname(UPDATE_MARKER_FILE), exist_ok=True)
+        
+        # Erstelle die Markierungsdatei
+        with open(UPDATE_MARKER_FILE, 'w') as f:
+            f.write(f"Update-Marker: {os.path.basename(sys.executable)}")
+            
+        logger.info(f"Update-Marker erstellt: {UPDATE_MARKER_FILE}")
+    except Exception as e:
+        logger.error(f"Fehler beim Erstellen des Update-Markers: {str(e)}")
+
+def check_and_clear_after_update():
+    """
+    Überprüft, ob ein Update durchgeführt wurde, und bereinigt AppData, wenn ja.
+    Sollte beim Start der Anwendung aufgerufen werden.
+    
+    Returns:
+        bool: True wenn AppData nach einem Update gelöscht wurde, sonst False
+    """
+    import config  # Importiere hier, um zirkuläre Imports zu vermeiden
+    
+    try:
+        if os.path.exists(UPDATE_MARKER_FILE):
+            logger.info("Update-Marker gefunden - bereinige AppData")
+            
+            # Bereinige AppData
+            clean_appdata()
+            
+            # Lösche den Update-Marker
+            os.remove(UPDATE_MARKER_FILE)
+            logger.info("Update-Marker entfernt")
+            
+            return True
+    except Exception as e:
+        logger.error(f"Fehler beim Überprüfen des Update-Markers: {str(e)}")
+    
+    return False
+
+def clean_appdata():
+    """
+    Löscht Logs und Datenbank aus dem AppData-Verzeichnis.
+    """
+    import config  # Importiere hier, um zirkuläre Imports zu vermeiden
+    
+    try:
+        # Schließe die Datenbank, falls geöffnet
+        try:
+            import database
+            # Verwende die neu hinzugefügte close_db-Funktion
+            database.close_db()
+            logger.info("Datenbank wurde erfolgreich geschlossen")
+        except Exception as db_error:
+            logger.warning(f"Datenbank konnte nicht explizit geschlossen werden: {str(db_error)}")
+            # Fortsetzung des Löschvorgangs trotz Fehler
+        
+        # Lösche Logs
+        if os.path.exists(config.LOG_FOLDER):
+            logger.info(f"Lösche Logs in: {config.LOG_FOLDER}")
+            for subfolder in [config.ERROR_LOG_FOLDER, config.GENERAL_LOG_FOLDER, config.DEBUG_LOG_FOLDER]:
+                if os.path.exists(subfolder):
+                    for file in os.listdir(subfolder):
+                        file_path = os.path.join(subfolder, file)
+                        try:
+                            if os.path.isfile(file_path):
+                                os.unlink(file_path)
+                        except Exception as e:
+                            logger.error(f"Fehler beim Löschen von {file_path}: {e}")
+        
+        # Lösche Datenbank
+        if os.path.exists(config.DB_FOLDER):
+            logger.info(f"Lösche Datenbanken in: {config.DB_FOLDER}")
+            for file in os.listdir(config.DB_FOLDER):
+                file_path = os.path.join(config.DB_FOLDER, file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception as e:
+                    logger.error(f"Fehler beim Löschen von {file_path}: {e}")
+    
+        logger.info("AppData nach Update bereinigt")
+    except Exception as e:
+        logger.error(f"Fehler beim Bereinigen von AppData: {str(e)}")
