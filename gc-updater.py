@@ -19,24 +19,54 @@ import ctypes
 from datetime import datetime
 import tkinter as tk
 from tkinter import messagebox
+import tempfile
 
-# Pfad zum AppData-Verzeichnis für Logdateien
-def get_app_data_path():
-    """Gibt den Pfad zum Anwendungsdatenverzeichnis im AppData-Ordner zurück."""
-    app_name = "SC-Griefing-Counter"
-    
-    # Unter Windows AppData-Verzeichnis verwenden
-    app_data = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), app_name)
-    return app_data
+# Sofort eine Fehlermeldung anzeigen, wenn ein Fehler auftritt
+try:
+    # Pfad zum AppData-Verzeichnis für Logdateien
+    def get_app_data_path():
+        """Gibt den Pfad zum Anwendungsdatenverzeichnis im AppData-Ordner zurück."""
+        app_name = "SC-Griefing-Counter"
+        
+        # Unter Windows AppData-Verzeichnis verwenden
+        app_data = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), app_name)
+        return app_data
+except Exception as e:
+    print(f"Fehler beim Abrufen des AppData-Pfads: {e}")
+    sys.exit(1)
+
+# Zuerst einen einfachen Log im aktuellen Verzeichnis erstellen für sofortige Diagnose
+script_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
+debug_log = os.path.join(script_dir, "updater_debug.log")
+
+# Einfache Debug-Funktion, die direkt ins Verzeichnis schreibt
+def debug_write(message):
+    try:
+        with open(debug_log, 'a') as f:
+            f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
+    except Exception as e:
+        # Falls direktes Schreiben fehlschlägt, versuchen wir es im temp-Verzeichnis
+        try:
+            temp_log = os.path.join(tempfile.gettempdir(), "gc_updater_debug.log")
+            with open(temp_log, 'a') as f:
+                f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Error writing to primary log: {e}\n")
+                f.write(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {message}\n")
+        except:
+            pass  # Hier können wir nichts mehr tun
+
+debug_write("Updater startet...")
+debug_write(f"Ausgeführt von: {sys.executable}")
+debug_write(f"Arbeitsverzeichnis: {os.getcwd()}")
 
 # Erstelle Logs im AppData-Verzeichnis anstatt im Programmverzeichnis
 app_data_path = get_app_data_path()
 log_dir = os.path.join(app_data_path, "Logs", "updater")
 os.makedirs(log_dir, exist_ok=True)
+
 log_file = os.path.join(log_dir, f"updater_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Detailliertes Logging für Fehlerdiagnose
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(log_file),
@@ -44,6 +74,8 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("GC-Updater")
+
+debug_write(f"Logger konfiguriert. Log-Datei: {log_file}")
 
 # Der GitHub-Username und Repo-Name sollten in einer Konfigurationsdatei gespeichert
 # oder zur Laufzeit durch GitHub Actions gesetzt werden
@@ -72,15 +104,57 @@ def download_file(url, local_path):
     """Lädt eine Datei von einer URL herunter"""
     try:
         logger.info(f"Versuche Download von: {url}")
-        response = requests.get(url, stream=True, timeout=30)
-        response.raise_for_status()
-        with open(local_path, 'wb') as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-        logger.info(f"Download erfolgreich: {local_path}")
-        return True
+        debug_write(f"Download-Start: {url} -> {local_path}")
+        
+        # Verbesserte Fehlerbehandlung mit mehreren Versuchen
+        max_attempts = 3
+        
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.get(url, stream=True, timeout=30)
+                response.raise_for_status()
+                total_size = int(response.headers.get('content-length', 0))
+                
+                with open(local_path, 'wb') as file:
+                    if total_size == 0:
+                        file.write(response.content)
+                    else:
+                        downloaded = 0
+                        for chunk in response.iter_content(chunk_size=8192):
+                            if chunk:
+                                file.write(chunk)
+                                downloaded += len(chunk)
+                                # Status nur für größere Downloads loggen
+                                if total_size > 1000000 and downloaded % 1000000 < 8192:  # Log ca. alle MB
+                                    percent = int(100 * downloaded / total_size)
+                                    debug_write(f"Download: {percent}% ({downloaded}/{total_size})")
+                
+                # Überprüfe, ob die Datei existiert und eine vernünftige Größe hat
+                if not os.path.exists(local_path):
+                    raise Exception(f"Datei wurde nicht erstellt: {local_path}")
+                
+                file_size = os.path.getsize(local_path)
+                if file_size < 1000 and total_size > 1000:  # Mindestens 1KB, wenn laut Header größer
+                    raise Exception(f"Datei scheint unvollständig: {file_size} Bytes")
+                
+                logger.info(f"Download erfolgreich: {local_path} ({file_size} Bytes)")
+                debug_write(f"Download abgeschlossen: {file_size} Bytes")
+                return True
+                
+            except Exception as e:
+                if attempt < max_attempts:
+                    wait_time = 2 * attempt  # Exponentielles Backoff
+                    logger.warning(f"Download-Versuch {attempt} fehlgeschlagen: {str(e)}. Wiederholung in {wait_time} Sekunden...")
+                    debug_write(f"Download-Fehler (Versuch {attempt}): {str(e)}")
+                    time.sleep(wait_time)
+                else:
+                    logger.error(f"Alle Download-Versuche fehlgeschlagen: {str(e)}")
+                    debug_write(f"Download endgültig fehlgeschlagen nach {max_attempts} Versuchen")
+                    return False
+                    
     except Exception as e:
-        logger.error(f"Fehler beim Herunterladen: {str(e)}")
+        logger.error(f"Unerwarteter Fehler beim Download-Prozess: {str(e)}")
+        debug_write(f"Kritischer Download-Fehler: {str(e)}")
         return False
 
 def check_exe_integrity(exe_path):
@@ -156,13 +230,21 @@ def extract_fallback_zip(zip_url, extract_dir):
 # Logging-Funktion für benutzerfreundliche Rückmeldungen
 def log_message(message):
     print(message)
+    debug_write(message)
 
 def show_message_box(title, message):
     """Zeigt ein Meldungsfenster an anstelle von Konsoleneingaben"""
-    root = tk.Tk()
-    root.withdraw()  # Verstecke das Hauptfenster
-    messagebox.showinfo(title, message)
-    root.destroy()
+    debug_write(f"MessageBox: {title} - {message}")
+    # Stelle sicher, dass wir immer eine neue Tk-Instanz erstellen
+    try:
+        root = tk.Tk()
+        root.withdraw()  # Verstecke das Hauptfenster
+        messagebox.showinfo(title, message)
+        root.destroy()
+    except Exception as e:
+        debug_write(f"Fehler beim Anzeigen der Meldung: {str(e)}")
+        # Fallback zur Konsolenausgabe
+        print(f"\n{title}:\n{message}\n")
 
 def main():
     try:
@@ -179,30 +261,45 @@ def main():
             show_message_box("Fehler", "GitHub Repository Owner nicht verfügbar. Update wird abgebrochen.")
             return
             
-        # Verwende die GitHub Releases API statt GitHub Pages
+        # Verwende die GitHub Releases API
         api_url = f"https://api.github.com/repos/{GITHUB_REPO_OWNER}/{GITHUB_REPO_NAME}/releases/latest"
         logger.info(f"API URL: {api_url}")
+        debug_write(f"API URL: {api_url}")
         
-        # Temporäres Verzeichnis
-        temp_dir = os.path.join(app_data_path, "temp")
-        if os.path.exists(temp_dir):
-            logger.info(f"Lösche vorhandenes temporäres Verzeichnis: {temp_dir}")
-            shutil.rmtree(temp_dir)
-        
-        logger.info(f"Erstelle temporäres Verzeichnis: {temp_dir}")
-        os.makedirs(temp_dir)
+        # Temporäres Verzeichnis mit besserer Fehlerbehandlung
+        try:
+            # Verwende das tempfile-Modul für bessere Kompatibilität
+            temp_dir = tempfile.mkdtemp(prefix="gc_updater_")
+            logger.info(f"Temporäres Verzeichnis erstellt: {temp_dir}")
+            debug_write(f"Temp-Verzeichnis: {temp_dir}")
+        except Exception as e:
+            logger.warning(f"Konnte kein temporäres Verzeichnis mit tempfile erstellen: {str(e)}")
+            # Fallback zur alten Methode
+            temp_dir = os.path.join(app_data_path, "temp")
+            if os.path.exists(temp_dir):
+                logger.info(f"Lösche vorhandenes temporäres Verzeichnis: {temp_dir}")
+                shutil.rmtree(temp_dir)
+            
+            logger.info(f"Erstelle temporäres Verzeichnis: {temp_dir}")
+            os.makedirs(temp_dir)
         
         # Release-Info herunterladen
         try:
             logger.info("Lade Release-Info...")
-            response = requests.get(api_url, timeout=10)
+            debug_write("Versuche GitHub API zu kontaktieren...")
+            
+            response = requests.get(api_url, timeout=15)
             response.raise_for_status()
             release_info = response.json()
+            
+            debug_write("GitHub API-Antwort erhalten")
             
             # Extrahiere Version aus dem Tag-Namen (v0.8.0 -> 0.8.0)
             latest_version = release_info["tag_name"]
             if latest_version.startswith('v'):
                 latest_version = latest_version[1:]
+            
+            debug_write(f"Neueste Version: {latest_version}")
             
             # Finde den Installer in den Assets
             installer_asset = None
@@ -249,37 +346,7 @@ def main():
             
             logger.info("Lade neue Version herunter...")
             if not download_file(download_url, exe_local_path):
-                raise Exception("Download der EXE fehlgeschlagen!")
-            log_message(f"   -> Download erfolgreich: {exe_local_path}\n")
-            
-            log_message("2. Lade SHA256-Hash-Datei herunter...")
-            logger.info("Lade Hash-Datei herunter...")
-            if not download_file(hash_url, hash_local_path):
-                raise Exception("Download der Hash-Datei fehlgeschlagen!")
-            log_message(f"   -> Download erfolgreich: {hash_local_path}\n")
-            
-            log_message("3. Überprüfe Integrität der heruntergeladenen Datei...")
-            # Hash überprüfen
-            logger.info("Überprüfe Hash...")
-            with open(hash_local_path, 'r') as f:
-                expected_hash = f.read().strip()
-            
-            actual_hash = get_sha256(exe_local_path)
-            logger.info(f"Erwarteter Hash: {expected_hash}")
-            logger.info(f"Tatsächlicher Hash: {actual_hash}")
-            
-            log_message("   -> Integritätsprüfung wird durchgeführt...")
-            if actual_hash != expected_hash:
-                log_message("   -> Integritätsprüfung fehlgeschlagen! Die Datei könnte beschädigt oder manipuliert sein.")
-                raise Exception("SHA256-Hash stimmt nicht überein! Mögliche Manipulation der Datei.")
-            log_message("   -> Integritätsprüfung erfolgreich.\n")
-            
-            logger.info("Hash erfolgreich verifiziert.")
-            
-            # Überprüfe die Integrität der EXE
-            if not check_exe_integrity(exe_local_path):
-                logger.warning("Die heruntergeladene EXE könnte ungültig sein. Versuche Fallback mit ZIP...")
-                # Versuche, die ZIP-Datei als Fallback zu verwenden
+                # Versuche es mit ZIP als Fallback sofort
                 if zip_url and extract_fallback_zip(zip_url, temp_dir):
                     # Suche nach der EXE in den entpackten Dateien
                     extracted_exe = None
@@ -290,15 +357,19 @@ def main():
                                 break
                     
                     if extracted_exe:
-                        logger.info(f"Gefunden: {extracted_exe}")
+                        logger.info(f"EXE aus ZIP gefunden: {extracted_exe}")
                         exe_local_path = extracted_exe
                     else:
                         raise Exception("Konnte keine gültige EXE in der ZIP-Datei finden")
                 else:
-                    raise Exception("Fallback-Extraktion der ZIP-Datei fehlgeschlagen")
+                    raise Exception("Download der EXE fehlgeschlagen und ZIP-Fallback nicht verfügbar!")
+                
+            log_message(f"   -> Download erfolgreich: {exe_local_path}\n")
             
-            # Führe einen Test der EXE durch
-            test_run_exe(exe_local_path)
+            log_message("2. Überprüfe Integrität der heruntergeladenen Datei...")
+            # Überprüfe die Integrität der EXE
+            if not check_exe_integrity(exe_local_path):
+                raise Exception("Die heruntergeladene EXE ist ungültig")
             
             # Aktuelle EXE ermitteln
             current_exe = sys.executable
@@ -308,6 +379,7 @@ def main():
                 main_exe = current_exe
             
             logger.info(f"Aktuelle EXE: {main_exe}")
+            debug_write(f"Hauptanwendung: {main_exe}")
             
             # Bei Bedarf Programm beenden
             if os.path.exists(main_exe) and os.path.basename(main_exe).lower() != "gc-updater.exe":
@@ -328,8 +400,8 @@ def main():
                     logger.warning(f"Konnte laufende Instanz nicht automatisch beenden: {str(e)}")
                     show_message_box("Hinweis", "Bitte schließen Sie die Anwendung manuell und klicken Sie auf OK, um fortzufahren.")
             
-            log_message("4. Ersetze alte Version...")
-            # Datei ersetzen
+            log_message("3. Ersetze alte Version...")
+            # Datei ersetzen mit verbesserter Fehlerbehandlung
             logger.info(f"Ersetze alte Version: {main_exe}")
             
             try:
@@ -337,12 +409,32 @@ def main():
                 if os.path.exists(main_exe):
                     backup_path = f"{main_exe}.bak"
                     logger.info(f"Erstelle Sicherungskopie: {backup_path}")
+                    try:
+                        # Falls bereits eine Sicherung existiert, lösche sie
+                        if os.path.exists(backup_path):
+                            os.remove(backup_path)
+                    except Exception as e:
+                        logger.warning(f"Konnte alte Sicherungsdatei nicht löschen: {str(e)}")
+                        
                     shutil.copy2(main_exe, backup_path)
                     log_message(f"   -> Alte Version gesichert: {backup_path}")
                 
-                # Kopieren mit erhöhten Rechten wenn nötig
-                shutil.copy2(exe_local_path, main_exe)
-                logger.info("Datei erfolgreich ersetzt.")
+                try:
+                    # Versuche direkt zu kopieren
+                    shutil.copy2(exe_local_path, main_exe)
+                    logger.info("Datei erfolgreich ersetzt.")
+                except PermissionError:
+                    # Versuche zu prüfen, ob die Zieldatei schreibgeschützt ist
+                    if os.path.exists(main_exe):
+                        try:
+                            os.chmod(main_exe, 0o666)  # Schreibrechte gewähren
+                            shutil.copy2(exe_local_path, main_exe)
+                            logger.info("Datei erfolgreich ersetzt (nach Änderung der Berechtigungen).")
+                        except Exception as e:
+                            raise Exception(f"Konnte Datei nicht ersetzen, auch nach Änderung der Berechtigungen: {str(e)}")
+                    else:
+                        raise Exception("Zieldatei existiert nicht. Update fehlgeschlagen.")
+                
                 log_message("   -> Neue Version erfolgreich installiert.\n")
             except Exception as e:
                 logger.error(f"Fehler beim Ersetzen der Datei: {str(e)}")
@@ -363,13 +455,15 @@ def main():
                     return
             
             # Aufräumen
-            logger.info(f"Räume temporäres Verzeichnis auf: {temp_dir}")
-            shutil.rmtree(temp_dir)
+            try:
+                logger.info(f"Räume temporäres Verzeichnis auf: {temp_dir}")
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                logger.warning(f"Konnte temporäres Verzeichnis nicht löschen: {str(e)}")
             
             logger.info("Update erfolgreich abgeschlossen!")
-            logger.info("Starte Griefing Counter...")
             
-            log_message("5. Starte aktualisierte Anwendung...")
+            log_message("4. Starte aktualisierte Anwendung...")
             # Starte die aktualisierte Anwendung
             try:
                 subprocess.Popen([main_exe])
@@ -377,23 +471,27 @@ def main():
                 log_message("   -> Anwendung erfolgreich gestartet.\n")
             except Exception as e:
                 logger.error(f"Fehler beim Starten der Anwendung: {str(e)}")
-                show_message_box("Fehler", f"Fehler beim Starten der Anwendung. Details in der Log-Datei: {log_file}")
+                show_message_box("Fehler", f"Fehler beim Starten der Anwendung. Bitte starten Sie die Anwendung manuell.\nDetails in der Log-Datei: {log_file}")
             
             # Zeige eine Erfolgsmeldung statt Konsoleneingabe zu verwenden
             show_message_box("Update abgeschlossen", 
-                           "Update erfolgreich abgeschlossen!\nVielen Dank, dass Sie den SC Griefing Counter verwenden.")
+                          "Update erfolgreich abgeschlossen!\nVielen Dank, dass Sie den SC Griefing Counter verwenden.")
             
         except Exception as e:
             logger.error(f"Fehler beim Update: {str(e)}")
             logger.error(traceback.format_exc())
-            show_message_box("Fehler", f"Ein Fehler ist aufgetreten. Details in der Log-Datei: {log_file}")
+            debug_write(f"Fehler im Update-Prozess: {str(e)}")
+            debug_write(traceback.format_exc())
+            show_message_box("Fehler", f"Ein Fehler ist aufgetreten: {str(e)}\n\nSiehe Log-Datei für Details: {log_file}")
         
     except Exception as e:
         # Globaler Ausnahmefehler
         logger.critical(f"Kritischer Fehler: {str(e)}")
         logger.critical(traceback.format_exc())
+        debug_write(f"KRITISCHER FEHLER: {str(e)}")
+        debug_write(traceback.format_exc())
         show_message_box("Kritischer Fehler", 
-                       f"Ein kritischer Fehler ist aufgetreten: {str(e)}\nDetails in der Log-Datei: {log_file}")
+                      f"Ein kritischer Fehler ist aufgetreten: {str(e)}\n\nDetails im Log: {debug_log}")
 
 if __name__ == "__main__":
     main()

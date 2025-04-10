@@ -93,29 +93,55 @@ def start_updater():
         # Markiere Update für späteres Aufräumen
         mark_update_performed()
         
-        # Pfad zum Updater
+        # Versuche zuerst den regulären Updater
         updater_path = os.path.join(os.path.dirname(sys.executable), "gc-updater.exe")
+        
+        # Als nächstes prüfen wir auf den verbesserten Updater
+        fixed_updater_path = os.path.join(os.path.dirname(sys.executable), "gc-updater-fixed.exe")
+        fixed_script_path = os.path.join(os.path.dirname(sys.executable), "gc-updater-fixed.py")
         
         # Für Entwicklungsumgebung (wenn nicht als exe ausgeführt)
         if not os.path.exists(updater_path) and os.path.basename(sys.executable) != "griefing_counter.exe":
-            updater_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gc-updater.py")
-            if os.path.exists(updater_path):
-                logger.info(f"Starte Updater im Entwicklungsmodus: {updater_path}")
-                # Führe den Python-Updater als neuen Prozess aus
-                subprocess.Popen([sys.executable, updater_path], 
+            # Suche nach den Skript-Varianten
+            updater_script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gc-updater.py")
+            fixed_script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "gc-updater-fixed.py")
+            
+            # Bevorzuge den verbesserten Updater
+            if os.path.exists(fixed_script_path):
+                logger.info(f"Starte verbesserten Updater im Entwicklungsmodus: {fixed_script_path}")
+                subprocess.Popen([sys.executable, fixed_script_path], 
+                               creationflags=subprocess.CREATE_NEW_CONSOLE)
+                sys.exit(0)
+            elif os.path.exists(updater_script_path):
+                logger.info(f"Starte Updater im Entwicklungsmodus: {updater_script_path}")
+                subprocess.Popen([sys.executable, updater_script_path], 
                                creationflags=subprocess.CREATE_NEW_CONSOLE)
                 sys.exit(0)
         
-        if os.path.exists(updater_path):
-            logger.info(f"Starte Updater: {updater_path}")
-            # Führe den Updater als neuen Prozess aus
+        # In der packaged Version zuerst den verbesserten Updater versuchen
+        if os.path.exists(fixed_updater_path):
+            logger.info(f"Starte verbesserten Updater: {fixed_updater_path}")
+            if os.name == 'nt':  # Windows
+                subprocess.Popen([fixed_updater_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:
+                subprocess.Popen([fixed_updater_path])
+            sys.exit(0)
+        # Dann den verbesserten Skript-Updater (falls eine Exe-Version fehlt)
+        elif os.path.exists(fixed_script_path) and os.path.exists(sys.executable) and sys.executable.endswith('.exe'):
+            logger.info(f"Starte verbesserten Updater-Skript: {fixed_script_path}")
+            subprocess.Popen([sys.executable, fixed_script_path], 
+                           creationflags=subprocess.CREATE_NEW_CONSOLE)
+            sys.exit(0)
+        # Schließlich den regulären Updater als Fallback
+        elif os.path.exists(updater_path):
+            logger.info(f"Starte Standard-Updater: {updater_path}")
             if os.name == 'nt':  # Windows
                 subprocess.Popen([updater_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
             else:
                 subprocess.Popen([updater_path])
             sys.exit(0)
         else:
-            logger.error(f"Updater nicht gefunden: {updater_path}")
+            logger.error(f"Updater nicht gefunden: weder {updater_path} noch {fixed_updater_path}")
             return False
     except Exception as e:
         logger.error(f"Fehler beim Starten des Updaters: {str(e)}")
