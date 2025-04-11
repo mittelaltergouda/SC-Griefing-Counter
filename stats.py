@@ -177,13 +177,11 @@ def get_stats(start_date=None, end_date=None, entity_filters=None):
         kills_detail = database.fetch_query(f"""
             SELECT killed_player FROM kills
             WHERE LOWER(killer)=? AND LOWER(killed_player) <> ? {date_filter}
-        """, tuple(kill_detail_params)) or []
-
-        # Death Breakdown now includes suicides and unknown deaths (no killer filter)
-        death_detail_params = [player_lower] + date_params
+        """, tuple(kill_detail_params)) or []        # Death Breakdown - filtert Selbstmorde aus (nur Tode durch andere)
+        death_detail_params = [player_lower, player_lower] + date_params
         deaths_detail = database.fetch_query(f"""
             SELECT killer FROM kills
-            WHERE LOWER(killed_player)=? {date_filter}
+            WHERE LOWER(killed_player)=? AND LOWER(killer) <> ? {date_filter}
         """, tuple(death_detail_params)) or []
 
         npc_dict = npc_handler.load_all_npc_categories()
@@ -516,14 +514,13 @@ def get_leaderboards(start_date=None, end_date=None, entity_filters=None):
               {date_filter}
             GROUP BY LOWER(killed_player)
             ORDER BY cnt DESC
-        """, tuple(kill_params))
-
-        # Lade alle Deaths ohne Filterung
-        death_params = [player_lower] + date_params
+        """, tuple(kill_params))        # Lade alle Deaths ohne Filterung (exklusive Selbstmorde)
+        death_params = [player_lower, player_lower] + date_params
         all_deaths = database.fetch_query(f"""
             SELECT killer, COUNT(*) as cnt
             FROM kills
             WHERE LOWER(killed_player) = ?
+              AND LOWER(killer) <> ?
               {date_filter}
             GROUP BY LOWER(killer)
             ORDER BY cnt DESC
