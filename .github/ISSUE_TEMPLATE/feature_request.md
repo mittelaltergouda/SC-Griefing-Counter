@@ -1,9 +1,9 @@
 ---
 name: Feature request
 about: Suggest an idea for this project
-title: "[FEATURE]"
+title: "[FEATURE] "
 labels: enhancement
-assignees: Eras308
+assignees: ''
 
 ---
 
